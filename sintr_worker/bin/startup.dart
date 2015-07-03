@@ -2,7 +2,11 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
+
 
 import 'package:gcloud/pubsub.dart' as gPubSub;
 
@@ -30,7 +34,8 @@ main(List<String> args) async {
   String controlChannel = args[1];
 
 
-  config.configuration = new config.Configuration(projectName);
+  config.configuration = new config.Configuration(projectName,
+  cryptoTokensLocation: "/Users/lukechurch/Communications/CryptoTokens");
 
   var client = await auth.getAuthedClient();
   var pubsub = new gPubSub.PubSub(client, projectName);
@@ -45,6 +50,9 @@ main(List<String> args) async {
   gPubSub.Subscription subscription = await ps.getSubscription(
       subscriptionName, topicName, pubsub);
 
+  await _setupIsolate();
+  _log.finer("Isolate setup");
+
   while (true) {
     gPubSub.PullEvent event = await subscription.pull();
     if (event != null) {
@@ -54,11 +62,40 @@ main(List<String> args) async {
       _log.info("${new DateTime.now()}: null event");
     }
   }
-
 }
 
-_handleEvent(gPubSub.PullEvent event) {
+_handleEvent(gPubSub.PullEvent event) async {
   _log.info("${new DateTime.now()}: ${event.message.asString}");
-  // Simulate doing some work.
-  sleep(new Duration(seconds: 5));
+
+  try {
+    var msgMap = JSON.decode(event.message.asString);
+    var data = msgMap["data"];
+    sendPort.send(data);
+    _log.fine("${new DateTime.now()}: Resonse: ${await stream.first}");
+  } catch (e, st) {
+    print (e);
+  }
+}
+
+SendPort sendPort;
+ReceivePort receivePort;
+
+StreamController controller = new StreamController();
+Stream stream;
+
+_setupIsolate() async {
+  receivePort = new ReceivePort();
+  stream = controller.stream.asBroadcastStream();
+  receivePort.listen((msg) {
+    if (sendPort == null) {
+      sendPort = msg;
+    } else {
+      controller.add(msg);
+    }
+  });
+
+  String workerUri = 'worker_isolate.dart';
+  Isolate.spawnUri(Uri.parse(workerUri), [], receivePort.sendPort).then((isolate) {
+    _log.info("Worker isolate spawned");
+  });
 }

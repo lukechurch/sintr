@@ -64,3 +64,57 @@ Future<Topic> getTopic(String name, PubSub ps) async {
   _log.shout("FAIL: Topic not $name");
   throw "Topic not found: $name";
 }
+
+Future<Subscription> getSubscription(
+  String subscriptionName, String topicName, PubSub ps) async {
+
+  // Try and find the subscription.
+  _log.finer("PRE: Getting subscription $subscriptionName");
+
+  Subscription subscription;
+
+  try {
+    subscription = await ps.lookupSubscription(subscriptionName);
+  } catch (e, st) {
+    _log.finer("NOK: Subscription lookup failed");
+    _log.finest(e);
+    _log.finest(st);
+  }
+
+  if (subscription != null) {
+    _log.finer("OK: Existing subscription found: ${subscription.absoluteName}");
+    return subscription;
+  }
+
+  // Try and create the topic.
+  try {
+    subscription = await ps.createSubscription(subscriptionName, topicName);
+  } catch (e, st) {
+    _log.finer("NOK: Subscription creation failed");
+    _log.finest(e);
+    _log.finest(st);
+  }
+
+  if (subscription != null) {
+    _log.fine("OK: Subscription created: ${subscription.absoluteName}");
+    return subscription;
+  }
+
+  // The creation make have failed because of a race between the lookup and
+  // the creation.
+  try {
+    subscription = await ps.lookupSubscription(subscriptionName);
+  } catch (e, st) {
+    _log.finer("NOK: Subscription lookup failed");
+    _log.finest(e);
+    _log.finest(st);
+  }
+
+  if (subscription != null) {
+    _log.finer("OK: Subscription found after race: ${subscription.absoluteName}");
+    return subscription;
+  }
+
+  _log.shout("FAIL: Subscription not $subscriptionName");
+  throw "Subscription not found: $subscriptionName";
+}

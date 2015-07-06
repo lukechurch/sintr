@@ -3,6 +3,9 @@
 .pub/
 build/
 packages
+.packages
+.project
+.settings
 
 # Or the files created by dart2js.
 *.dart.js

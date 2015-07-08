@@ -1,6 +1,10 @@
 # Don’t commit the following directories created by pub.
 .buildlog
+.idea
+.packages
+.project
 .pub/
+.settings
 build/
 packages
 

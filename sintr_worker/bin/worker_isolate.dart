@@ -16,12 +16,11 @@ var PROJECT = 'sintr-994';
 final _log = new logging.Logger("worker_isolate");
 
 main(List<String> args, SendPort sendPort) {
-
   logging.setupLogging();
   _log.fine("args: $args");
 
   config.configuration = new config.Configuration(PROJECT,
-  cryptoTokensLocation: "${config.userHomePath}/Communications/CryptoTokens");
+      cryptoTokensLocation: "${config.userHomePath}/Communications/CryptoTokens");
 
   ReceivePort receivePort = new ReceivePort();
   sendPort.send(receivePort.sendPort);
@@ -65,11 +64,12 @@ Future<Map<String, List<String>>> map(String k, String v) async {
   var storage = new Storage(client, "sintr-994");
   _log.finest("Storage acquired");
 
-  await for (String ln in storage.bucket("sintr-sample-test-data")
-     .read(k)
-    .transform(UTF8.decoder)       // Decode bytes to UTF8.
-    .transform(new LineSplitter())) // Convert stream to individual lines.
-  {
+  await for (String ln in storage
+          .bucket("sintr-sample-test-data")
+          .read(k)
+          .transform(UTF8.decoder) // Decode bytes to UTF8.
+          .transform(new LineSplitter())) // Convert stream to individual lines.
+      {
     if (!ln.startsWith("~")) continue;
 
     String timeStr = ln.split(':')[0].split("~")[1];
@@ -84,5 +84,4 @@ Future<Map<String, List<String>>> map(String k, String v) async {
   }
 
   return retData;
-
 }

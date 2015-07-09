@@ -11,7 +11,6 @@ import 'dart:io' as io;
 import 'package:gcloud/db.dart' as db;
 import 'package:gcloud/datastore.dart' as ds;
 
-
 /*
  * This is the schema for response storage
  */
@@ -38,17 +37,11 @@ class ResponseBlob extends db.Model {
   @db.StringProperty()
   String status;
 
-
   ResponseBlob();
 
-  ResponseBlob.FromData(
-       String jobID,
-       String requestID,
-       String requestData,
-       String result,
-       int executionTime,
-       String workerRecievedDateTime,
-       String status) {
+  ResponseBlob.FromData(String jobID, String requestID, String requestData,
+      String result, int executionTime, String workerRecievedDateTime,
+      String status) {
     this.jobID = jobID;
     this.requestID = requestID;
     this.requestData = requestData;

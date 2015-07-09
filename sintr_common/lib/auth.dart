@@ -15,7 +15,6 @@ import "package:logging/logging.dart" as logging;
 
 import "configuration.dart" as config;
 
-
 final _log = new logging.Logger("Authentication");
 
 /// Get an authenticated client either from the metadata server or a local key
@@ -63,15 +62,14 @@ Future<AuthClient> _tryAuthViaCryptoToken() async {
       ..addAll(PubSub.SCOPES);
 
     _log.finer("PRE: About to get client from Crypto Token");
-    if (config.configuration == null
-    || config.configuration.cryptoTokensLocation == null) {
+    if (config.configuration == null ||
+        config.configuration.cryptoTokensLocation == null) {
       _log.finer("NOK: No crypto token configuration");
       return null;
     }
 
-    String cryptoPath =
-    "${config.configuration.cryptoTokensLocation}/"
-    "${config.configuration.projectName}.json";
+    String cryptoPath = "${config.configuration.cryptoTokensLocation}/"
+        "${config.configuration.projectName}.json";
 
     if (!(new File(cryptoPath).existsSync())) {
       _log.finer("NOK: No cryptoToken at $cryptoPath");

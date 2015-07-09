@@ -66,7 +66,7 @@ Future<Topic> getTopic(String name, PubSub ps) async {
 }
 
 Future<Subscription> getSubscription(
-  String subscriptionName, String topicName, PubSub ps) async {
+    String subscriptionName, String topicName, PubSub ps) async {
 
   // Try and find the subscription.
   _log.finer("PRE: Getting subscription $subscriptionName");
@@ -111,7 +111,8 @@ Future<Subscription> getSubscription(
   }
 
   if (subscription != null) {
-    _log.finer("OK: Subscription found after race: ${subscription.absoluteName}");
+    _log.finer(
+        "OK: Subscription found after race: ${subscription.absoluteName}");
     return subscription;
   }
 

@@ -6,6 +6,8 @@
 
 library sintr_common.config;
 
+import 'dart:io';
+
 Configuration configuration;
 
 class Configuration {
@@ -13,4 +15,16 @@ class Configuration {
   final String cryptoTokensLocation;
 
   Configuration(this.projectName, {this.cryptoTokensLocation});
+}
+
+/// Return the absolute path to the current user's home directory
+String get userHomePath {
+  Map<String, String> envVars = Platform.environment;
+  if (Platform.isMacOS || Platform.isLinux) {
+    return envVars['HOME'];
+  }
+  if (Platform.isWindows) {
+    return envVars['UserProfile'];
+  }
+  throw 'failed to determine user home directory';
 }

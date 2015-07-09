@@ -51,7 +51,7 @@ main(List<String> args) async {
   workerFolder = args[2];
 
   config.configuration = new config.Configuration(projectName,
-  cryptoTokensLocation: "/Users/lukechurch/Communications/CryptoTokens");
+  cryptoTokensLocation: "${config.userHomePath}/Communications/CryptoTokens");
 
   var client = await auth.getAuthedClient();
   var pubsub = new gPubSub.PubSub(client, projectName);

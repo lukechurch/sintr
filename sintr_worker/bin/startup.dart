@@ -184,5 +184,6 @@ _setupIsolate(String startPath) async {
 
   isolate =
     await Isolate.spawnUri(Uri.parse(startPath), [], receivePort.sendPort);
+  isolate.setErrorsFatal(false);
   _log.info("Worker isolate spawned");
 }

@@ -17,6 +17,7 @@ import 'package:sintr_common/auth.dart' as auth;
 import 'package:sintr_common/configuration.dart' as config;
 import 'package:sintr_common/pubsub_utils.dart' as ps;
 import 'package:sintr_common/storage_comms.dart' as storage_comms;
+import 'package:sintr_common/logging_utils.dart' as logging_utils;
 import 'package:logging/logging.dart' as logging;
 
 
@@ -42,11 +43,7 @@ main(List<String> args) async {
     exit(1);
   }
 
-  logging.Logger.root.level = logging.Level.FINE;
-  logging.Logger.root.onRecord.listen((logging.LogRecord rec) {
-    print('${rec.level.name}: ${rec.time}: ${rec.message}');
-  });
-
+  logging_utils.setupLogging();
   _log.finest(args);
 
   String projectName = args[0];
@@ -121,7 +118,7 @@ _handleEvent(gPubSub.PullEvent event) async {
     _log.finest("Recording response completed");
 
   } catch (e, st) {
-    print (e);
+    _log.info("Worker threw an exception: $e\n$st");
   }
 }
 

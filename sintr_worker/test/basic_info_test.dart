@@ -31,8 +31,7 @@ msgN :: 1
 Data :: ~1427794575906:Ver:1427375441782463424515:IntelliJ_IDEA:IC-141.177:1.3.0:1.9.0-dev.10.10+2
 ''';
     var result = await runMap(data);
-    expect(result, hasLength(1));
-    expect(result[target.basic_info_key], [target.skip_value]);
+    expect(result, hasLength(0));
   });
 
   test('map truncated', () async {
@@ -56,8 +55,7 @@ Data :: ~1427814186420:Noti:{"event"::"server.connected","params"::{"version"::"
 ~1427814186490:Res:{"id"::"1"}
 ''';
     var result = await runMap(data);
-    expect(result, hasLength(1));
-    expect(result[target.basic_info_key], [target.skip_value]);
+    expect(result, hasLength(0));
   });
 }
 

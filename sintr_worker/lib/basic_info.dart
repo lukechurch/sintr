@@ -67,7 +67,6 @@ Future<Map<String, List<String>>> map(String k, String v) async {
 }
 
 const basic_info_key = 'basic_info';
-const skip_value = 'skip';
 const unknown_value = 'unknown';
 const data_prefix = 'Data :: ~';
 
@@ -79,20 +78,22 @@ String logKey, Stream<String> stream) async {
     if (line.startsWith('sessionID :: ')) {
       if (!line.startsWith('sessionID :: PRI')) {
         // The information is only encoded in priority streams
-        return result..[basic_info_key] = [skip_value];
+        return result;
       }
     }
     if (line.startsWith('msgN :: ')) {
       if (line != 'msgN :: 0') {
         // The information is only encoded in the first message
-        return result..[basic_info_key] = [skip_value];
+        return result;
       }
     }
     if (line.startsWith(data_prefix)) {
       // Extract the info and add a result of the format
       // <millisSinceEpoch>:Ver:<uuid>:<clientId>:<clientVersion>:<serverVersion>:<sdkVersion>
-      return result..[basic_info_key] = [line.substring(data_prefix.length)];
+      result[basic_info_key] = [line.substring(data_prefix.length)];
+      return result;
     }
   }
-  return result..[basic_info_key] = [unknown_value];
+  result[basic_info_key] = [unknown_value];
+  return result;
 }

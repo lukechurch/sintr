@@ -97,3 +97,37 @@ String logKey, Stream<String> stream) async {
   result[basic_info_key] = [unknown_value];
   return result;
 }
+
+Future<Map<String, List<String>>> reduce(
+    String basicKey, Stream<String> stream) async {
+  if (!basicKey.startsWith(key_prefix)) throw 'unknown key: $basicKey';
+  var dateSuffix = basicKey.substring(key_prefix.length);
+  // Map of clientId:clientVersion to set of UUID
+  Map<String, Set<String>> clientMap = {};
+  Map<String, Set<String>> serverMap = {};
+  Map<String, Set<String>> sdkMap = {};
+  await for (String line in stream) {
+    // <uuid>:<clientId>:<clientVersion>:<serverVersion>:<sdkVersion>
+    var split = line.split(':');
+    var uuid = split[0];
+    var clientId = split[1];
+    var clientVersion = split[2];
+    var clientKey = '$clientId:$clientVersion';
+    var serverVersion = split[3];
+    var sdkVersion = split[4];
+    clientMap.putIfAbsent(clientKey, () => new Set()).add(uuid);
+    serverMap.putIfAbsent(serverVersion, () => new Set()).add(uuid);
+    sdkMap.putIfAbsent(sdkVersion, () => new Set()).add(uuid);
+  }
+  return {
+    // List of <clientId>:<clientVersion>:<numOfUsers>
+    'clients_$dateSuffix':
+        clientMap.keys.map((k) => '$k:${clientMap[k].length.toString()}'),
+    // List of <serverVersion>:<numOfUsers>
+    'servers_$dateSuffix':
+        serverMap.keys.map((k) => '$k:${serverMap[k].length.toString()}'),
+    // List of <sdkVersion>:<numOfUsers>
+    'sdks_$dateSuffix':
+        sdkMap.keys.map((k) => '$k:${sdkMap[k].length.toString()}'),
+  };
+}

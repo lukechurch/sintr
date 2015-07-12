@@ -57,6 +57,37 @@ Data :: ~1427814186420:Noti:{"event"::"server.connected","params"::{"version"::"
     var result = await runMap(data);
     expect(result, hasLength(0));
   });
+
+  test('reduce', () async {
+    StreamController<String> controller = new StreamController();
+    var uuid1 = '1427375441782463424515';
+    var uuid2 = '1427375441739871424515';
+    var data = '''$uuid1:IntelliJ_IDEA:IC-141.177:1.3.0:1.9.0-dev.10.10+1
+$uuid1:IntelliJ_IDEA:IC-141.177:1.3.0:1.9.0-dev.10.10+2
+$uuid1:IntelliJ_IDEA:IC-141.178:1.2.0:1.9.0-dev.10.10+2
+$uuid2:IntelliJ_IDEA:IC-141.178:1.2.0:1.9.0-dev.10.10+2
+$uuid2:dart.plugins:1.2.3:1.2.0:1.9.0-dev.10.10+2''';
+    controller.add(data);
+    controller.close();
+    var result = await basic_info.reduce('basic_info_2015-03-31',
+        controller.stream.transform(new LineSplitter()));
+    // List of <clientId>:<clientVersion>:<numOfUsers>
+    var clientInfo = result['clients_2015-03-31'];
+    expect(clientInfo, contains('IntelliJ_IDEA:IC-141.177:1'));
+    expect(clientInfo, contains('IntelliJ_IDEA:IC-141.178:2'));
+    expect(clientInfo, contains('dart.plugins:1.2.3:1'));
+    expect(clientInfo, hasLength(3));
+    // List of <serverVersion>:<numOfUsers>
+    var serverInfo = result['servers_2015-03-31'];
+    expect(serverInfo, contains('1.3.0:1'));
+    expect(serverInfo, contains('1.2.0:2'));
+    expect(serverInfo, hasLength(2));
+    // List of <sdkVersion>:<numOfUsers>
+    var sdkInfo = result['sdks_2015-03-31'];
+    expect(sdkInfo, contains('1.9.0-dev.10.10+2:2'));
+    expect(sdkInfo, contains('1.9.0-dev.10.10+1:1'));
+    expect(sdkInfo, hasLength(2));
+  });
 }
 
 Future<Map<String, List<String>>> runMap(String data) async {

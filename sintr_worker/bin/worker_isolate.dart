@@ -6,10 +6,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
 
-import 'package:gcloud/storage.dart';
 import 'package:sintr_common/logging_utils.dart' as logging;
-import 'package:sintr_common/auth.dart' as auth;
 import 'package:sintr_common/configuration.dart' as config;
+import 'package:sintr_common/instrumentation_utils.dart' as inst;
 
 var PROJECT = 'sintr-994';
 
@@ -36,10 +35,9 @@ Future<String> _protectedHandle(String msg) async {
     var inArgs = JSON.decode(msg);
     _log.finest("inArgs: $msg");
 
-    String key = inArgs["key"];
-    String value = inArgs["value"];
+    String logKey = inArgs["key"];
 
-    var response = await map(key, value);
+    var response = await map(logKey);
 
     _log.finest("response: $response");
     return JSON.encode(response);
@@ -52,30 +50,20 @@ Future<String> _protectedHandle(String msg) async {
 
 // Sample extractor
 
-Future<Map<String, List<String>>> map(String k, String v) async {
+Future<Map<String, List<String>>> map(String logKey) async {
   Map<String, List<String>> retData = new Map<String, List<String>>();
 
   retData["ErringFiles"] = [];
   retData["Noti"] = [];
 
-  var client = await auth.getAuthedClient();
-  _log.finest("Client acquired");
-
-  var storage = new Storage(client, "sintr-994");
-  _log.finest("Storage acquired");
-
-  await for (String ln in storage
-          .bucket("sintr-sample-test-data")
-          .read(k)
-          .transform(UTF8.decoder) // Decode bytes to UTF8.
-          .transform(new LineSplitter())) // Convert stream to individual lines.
-      {
+  // Convert stream to individual lines.
+  await for (String ln in inst.logStream(logKey)) {
     if (!ln.startsWith("~")) continue;
 
     String timeStr = ln.split(':')[0].split("~")[1];
 
     if (ln.contains('Noti:{"event"::"server.error"')) {
-      retData["ErringFiles"].add(k);
+      retData["ErringFiles"].add(logKey);
     }
 
     if (ln.contains("Noti")) {

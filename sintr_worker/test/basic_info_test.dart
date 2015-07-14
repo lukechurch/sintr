@@ -85,8 +85,10 @@ $uuid2:IntelliJ_IDEA:IC-141.178:1.2.0:1.9.0-dev.10.10+2
 $uuid2:dart.plugins:1.2.3:1.2.0:1.9.0-dev.10.10+2''';
     controller.add(data);
     controller.close();
+
     var result = await basic_info.reduce('basic_info_2015-03-31',
         controller.stream.transform(new LineSplitter()));
+
     // List of <clientId>:<clientVersion>:<numOfUsers>
     var clientInfo = result['clients_2015-03-31'];
     expect(clientInfo, contains('IntelliJ_IDEA:IC-141.177:1'));

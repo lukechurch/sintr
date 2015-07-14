@@ -105,14 +105,14 @@ Future<Map<String, List<String>>> mapStream(
 }
 
 Future<Map<String, List<String>>> reduce(
-    String basicKey, Stream<String> stream) async {
-  if (!basicKey.startsWith(key_prefix)) throw 'unknown key: $basicKey';
-  var dateSuffix = basicKey.substring(key_prefix.length);
+    String key, Stream<String> valueStream) async {
+  if (!key.startsWith(key_prefix)) throw 'unknown key: $key';
+  var dateSuffix = key.substring(key_prefix.length);
   // Map of clientId:clientVersion to set of UUID
   Map<String, Set<String>> clientMap = {};
   Map<String, Set<String>> serverMap = {};
   Map<String, Set<String>> sdkMap = {};
-  await for (String line in stream) {
+  await for (String line in valueStream) {
     // <uuid>:<clientId>:<clientVersion>:<serverVersion>:<sdkVersion>
     var split = line.split(':');
     var uuid = split[0];

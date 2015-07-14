@@ -107,6 +107,9 @@ Future<Map<String, List<String>>> mapStream(
 /// Return a key of the form <prefix><YYYY>-<MM>-<DD>
 String buildKey(String prefix, int milliSinceEpoch) {
   var time = new DateTime.fromMillisecondsSinceEpoch(milliSinceEpoch);
+  // TODO when we have the inftastructure in place to do pub-deployments
+  // to the worker nodes consider something like this:
+  // http://stackoverflow.com/questions/16126579/how-do-i-format-a-date-with-dart
   var year = time.year.toString();
   var month = time.month.toString();
   var day = time.day.toString();

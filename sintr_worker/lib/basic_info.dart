@@ -20,7 +20,7 @@ main(List<String> args, SendPort sendPort) {
   _log.fine("args: $args");
 
   config.configuration = new config.Configuration(PROJECT,
-  cryptoTokensLocation: "${config.userHomePath}/Communications/CryptoTokens");
+      cryptoTokensLocation: "${config.userHomePath}/Communications/CryptoTokens");
 
   ReceivePort receivePort = new ReceivePort();
   sendPort.send(receivePort.sendPort);
@@ -66,13 +66,12 @@ Future<Map<String, List<String>>> map(String k, String v) async {
   return await mapStream(k, stream);
 }
 
-const basic_info_key = 'basic_info';
+const key_prefix = 'basic_info_';
 const unknown_value = 'unknown';
-const data_prefix = 'Data :: ~';
 
 /// Extract basic information about the client (IDE) being used
 Future<Map<String, List<String>>> mapStream(
-String logKey, Stream<String> stream) async {
+    String logKey, Stream<String> stream) async {
   var result = new Map<String, List<String>>();
   await for (String line in stream) {
     if (line.startsWith('sessionID :: ')) {
@@ -87,13 +86,34 @@ String logKey, Stream<String> stream) async {
         return result;
       }
     }
-    if (line.startsWith(data_prefix)) {
-      // Extract the info and add a result of the format
-      // <millisSinceEpoch>:Ver:<uuid>:<clientId>:<clientVersion>:<serverVersion>:<sdkVersion>
-      result[basic_info_key] = [line.substring(data_prefix.length)];
+    if (line.startsWith('Data :: ~')) {
+      int index = line.indexOf(':Ver:');
+      if (index != -1) {
+        int milliSinceEpoch = int.parse(line.substring(9, index));
+        var prefix = key_prefix;
+        var key = buildKey(prefix, milliSinceEpoch);
+        // Extract the info and add a key/value of the format
+        // basic_info_<YYYY>-<MM>-<DD>
+        // <uuid>:<clientId>:<clientVersion>:<serverVersion>:<sdkVersion>
+        result[key] = [line.substring(index + 5)];
+      }
       return result;
     }
   }
-  result[basic_info_key] = [unknown_value];
+  result[key_prefix] = [unknown_value];
   return result;
+}
+
+/// Return a key of the form <prefix><YYYY>-<MM>-<DD>
+String buildKey(String prefix, int milliSinceEpoch) {
+  var time = new DateTime.fromMillisecondsSinceEpoch(milliSinceEpoch);
+  // TODO when we have the inftastructure in place to do pub-deployments
+  // to the worker nodes consider something like this:
+  // http://stackoverflow.com/questions/16126579/how-do-i-format-a-date-with-dart
+  var year = time.year.toString();
+  var month = time.month.toString();
+  var day = time.day.toString();
+  if (month.length < 2) month = '0$month';
+  if (day.length < 2) day = '0$day';
+  return '$prefix$year-$month-$day';
 }

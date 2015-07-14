@@ -35,9 +35,9 @@ Future<String> _protectedHandle(String msg) async {
     var inArgs = JSON.decode(msg);
     _log.finest("inArgs: $msg");
 
-    String logKey = inArgs["key"];
+    String key = inArgs["key"];
 
-    var response = await map(logKey);
+    var response = await map(key);
 
     _log.finest("response: $response");
     return JSON.encode(response);

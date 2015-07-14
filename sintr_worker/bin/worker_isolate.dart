@@ -50,20 +50,20 @@ Future<String> _protectedHandle(String msg) async {
 
 // Sample extractor
 
-Future<Map<String, List<String>>> map(String logKey) async {
+Future<Map<String, List<String>>> map(String key) async {
   Map<String, List<String>> retData = new Map<String, List<String>>();
 
   retData["ErringFiles"] = [];
   retData["Noti"] = [];
 
   // Convert stream to individual lines.
-  await for (String ln in inst.logStream(logKey)) {
+  await for (String ln in inst.logStream(key)) {
     if (!ln.startsWith("~")) continue;
 
     String timeStr = ln.split(':')[0].split("~")[1];
 
     if (ln.contains('Noti:{"event"::"server.error"')) {
-      retData["ErringFiles"].add(logKey);
+      retData["ErringFiles"].add(key);
     }
 
     if (ln.contains("Noti")) {

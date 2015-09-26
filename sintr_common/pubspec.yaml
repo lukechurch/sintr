@@ -5,6 +5,8 @@ author: Dart Team <misc@dartlang.org>
 environment:
   sdk: '>=1.0.0 <2.0.0'
 dependencies:
+  appengine: ^0.3.0
+  memcache: ^0.2.0
   googleapis_auth: '>=0.1.1 <0.3.0'
   gcloud: '>=0.2.0+4 <0.3.0'
   logging: '>=0.11.1 <0.12.0'

@@ -11,7 +11,7 @@ import 'package:gcloud/storage.dart';
 import 'package:gcloud/pubsub.dart';
 import 'package:gcloud/src/datastore_impl.dart' as datastore_impl;
 import "package:googleapis_auth/auth_io.dart";
-import "package:logging/logging.dart" as logging;
+import "package:sintr_common/logging_utils.dart" as logging;
 
 import "configuration.dart" as config;
 

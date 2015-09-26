@@ -12,12 +12,11 @@ import 'package:sintr_common/logging_utils.dart' as logging;
 
 const int DATASTORE_TRANSACTION_SIZE = 100;
 
-db.DatastoreDB _db = ae.context.services.db;
+db.DatastoreDB _db = db.dbService;
 final _logger = new logging.Logger("tasks");
 
 /// Abstraction over a piece of work to be done by a compute node
 class Task {
-
   // Location of the object in the datastore
   final db.Key _objectKey;
   _TaskModel backingstore;
@@ -47,15 +46,14 @@ class Task {
 
   /// Set the state of the task, do not use to set to ALLOCATED
   Future setState(LifecycleState state) async {
-    if (state == LifecycleState.ALLOCATED)
-      throw "Setting tasks to allocated may only be done by the TaskController";
+    if (state ==
+        LifecycleState.ALLOCATED) throw "Setting tasks to allocated may only be done by the TaskController";
 
     _logger.finer("Set state on Task for $_objectKey -> $state");
 
     await _pullBackingStore();
     int lifeCycleStateInt = _intFromLifecycle(state);
-    await SafeMemcache.set(
-      _stateMemcacheKey, lifeCycleStateInt.toString());
+    await SafeMemcache.set(_stateMemcacheKey, lifeCycleStateInt.toString());
     backingstore.lifecycleState = lifeCycleStateInt;
     await _pushBackingStore();
 
@@ -88,29 +86,25 @@ class Task {
     await _pullBackingStore();
     if (backingstore == null) return null;
 
-    return new CloudStorageLocation(
-      backingstore.inputCloudStorageBucketName,
-      backingstore.inputCloudStorageObjectPath);
+    return new CloudStorageLocation(backingstore.inputCloudStorageBucketName,
+        backingstore.inputCloudStorageObjectPath);
   }
 
   Future<CloudStorageLocation> get resultLocation async {
     await _pullBackingStore();
     if (backingstore == null) return null;
 
-    return new CloudStorageLocation(
-      backingstore.resultCloudStorageBucketName,
-      backingstore.resultCloudStorageObjectPath);
+    return new CloudStorageLocation(backingstore.resultCloudStorageBucketName,
+        backingstore.resultCloudStorageObjectPath);
   }
 
   Future<CloudStorageLocation> get sourceLocation async {
     await _pullBackingStore();
     if (backingstore == null) return null;
 
-    return new CloudStorageLocation(
-      backingstore.sourceCloudStorageBucketName,
-      backingstore.sourceCloudStorageObjectPath);
+    return new CloudStorageLocation(backingstore.sourceCloudStorageBucketName,
+        backingstore.sourceCloudStorageObjectPath);
   }
-
 
   /// Notify this task that is has made progress
   ping() async {
@@ -138,14 +132,14 @@ class Task {
 
   Task._fromTaskKey(this._objectKey);
 
-  Task._fromTaskModel(_TaskModel backingstore) :
-    this._objectKey = backingstore.key,
-    this.backingstore = backingstore;
+  Task._fromTaskModel(_TaskModel backingstore)
+      : this._objectKey = backingstore.key,
+        this.backingstore = backingstore;
 }
 
 /// Datamodel for storing tasks in Datastore
+@db.Kind()
 class _TaskModel extends db.Model {
-
   @db.StringProperty()
   String parentJobName;
 
@@ -178,18 +172,19 @@ class _TaskModel extends db.Model {
 
   _TaskModel();
 
-  _TaskModel.fromData(this.parentJobName,
-    CloudStorageLocation inputLocation,
-    CloudStorageLocation sourceLocation,
-    String this.resultCloudStorageBucketName) {
-      lifecycleState = _intFromLifecycle(LifecycleState.READY);
-      lastUpdateEpochMs = new DateTime.now().millisecondsSinceEpoch;
-      failureCount = 0;
-      inputCloudStorageBucketName = inputLocation.bucketName;
-      inputCloudStorageObjectPath = inputLocation.objectPath;
-      sourceCloudStorageBucketName = sourceLocation.bucketName;
-      sourceCloudStorageObjectPath = sourceLocation.objectPath;
-    }
+  _TaskModel.fromData(
+      this.parentJobName,
+      CloudStorageLocation inputLocation,
+      CloudStorageLocation sourceLocation,
+      String this.resultCloudStorageBucketName) {
+    lifecycleState = _intFromLifecycle(LifecycleState.READY);
+    lastUpdateEpochMs = new DateTime.now().millisecondsSinceEpoch;
+    failureCount = 0;
+    inputCloudStorageBucketName = inputLocation.bucketName;
+    inputCloudStorageObjectPath = inputLocation.objectPath;
+    sourceCloudStorageBucketName = sourceLocation.bucketName;
+    sourceCloudStorageObjectPath = sourceLocation.objectPath;
+  }
 }
 
 class CloudStorageLocation {
@@ -201,21 +196,20 @@ class CloudStorageLocation {
 
 /// [LifecycleState] tracks a task through its lifetime
 enum LifecycleState {
-  READY,      // Ready for allocation
-  ALLOCATED,  // Allocated to a node
-  STARTED,    // Execution has begun, this may go back to READY if it fails
-  DONE,       // Successfully compute
-  DEAD        // Terminally dead, won't be retried
+  READY, // Ready for allocation
+  ALLOCATED, // Allocated to a node
+  STARTED, // Execution has begun, this may go back to READY if it fails
+  DONE, // Successfully compute
+  DEAD // Terminally dead, won't be retried
 }
 
 LifecycleState _lifecyclefromInt(int i) => LifecycleState.values[i];
 int _intFromLifecycle(LifecycleState state) =>
-  LifecycleState.values.indexOf(state);
+    LifecycleState.values.indexOf(state);
 
 /// Class that manages the creation and allocation of the work to be done
 /// Multiple nodes are expected to make concurrent calls to this API
 class TaskController {
-
   String jobName;
 
   TaskController(this.jobName);
@@ -244,8 +238,8 @@ class TaskController {
       // The key didn't exist
       if (memcacheState == null) {
         try {
-          await memcache.set(_stateMemcacheKey,
-            READY_STATE.toString(), action: mc.SetAction.ADD);
+          await memcache.set(_stateMemcacheKey, READY_STATE.toString(),
+              action: mc.SetAction.ADD);
         } on mc.NotStoredError {
           // This doesn't matter. It just means that someone else created
           // key whilst we were trying to. The CAS call below will protect
@@ -288,28 +282,27 @@ class TaskController {
   }
 
   Future createTasks(
-    List<CloudStorageLocation> inputLocations,
-    CloudStorageLocation sourceLocation,
-    String resultCloudStorageBucketName) async {
-
+      List<CloudStorageLocation> inputLocations,
+      CloudStorageLocation sourceLocation,
+      String resultCloudStorageBucketName) async {
     // TODO this needs resiliance adding to it to protect against
     // datastore errors
 
     var inserts = <_TaskModel>[];
     for (CloudStorageLocation inputLocation in inputLocations) {
       _TaskModel task = new _TaskModel.fromData(
-        jobName, inputLocation, sourceLocation, resultCloudStorageBucketName);
+          jobName, inputLocation, sourceLocation, resultCloudStorageBucketName);
       inserts.add(task);
 
       if (inserts.length >= DATASTORE_TRANSACTION_SIZE) {
-        await _db.commit(inserts: [inserts]);
+        await _db.commit(inserts: inserts);
         inserts.clear();
       }
     }
 
     if (inserts.length > 0) {
-      await _db.commit(inserts: [inserts]);
+      await _db.commit(inserts: inserts);
       inserts.clear();
     }
-    }
+  }
 }

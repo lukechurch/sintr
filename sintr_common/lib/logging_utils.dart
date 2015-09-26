@@ -14,8 +14,10 @@ setupLogging() {
 /// Setup log streaming to stdOut.
 _setupLocalLogging() {
   // Setup the logging
-  logging.Logger.root.level = logging.Level.FINE;
+  logging.hierarchicalLoggingEnabled = true;
+  logging.Logger.root.level = logging.Level.ALL;
   logging.Logger.root.onRecord.listen((logging.LogRecord rec) {
     print('${rec.level.name}: ${rec.time}: ${rec.message}');
   });
+
 }

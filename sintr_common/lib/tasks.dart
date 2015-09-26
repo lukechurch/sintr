@@ -21,8 +21,8 @@ class Task {
   final db.Key _objectKey;
   _TaskModel backingstore;
 
-  String get _stateMemcacheKey => "$_objectKey-LifecycleState";
-  String get _pingMemcacheKey => "$_objectKey-LastPing";
+  String get _stateMemcacheKey => "$_objectKey-lifecycleState";
+  String get _lastUpdateMemcacheKey => "$_objectKey-lastUpdateEpochMs";
 
   /// Get the state of the task
   // The state machine for READY -> ALLOCATED is synchronised
@@ -68,8 +68,8 @@ class Task {
 
   // Last time this task was pinged as having made progress
   // Best effort syncronised
-  Future<int> get lastPingEpochTime async {
-    String memcacheResult = await SafeMemcache.get(_pingMemcacheKey);
+  Future<int> get lastUpdateEpochMs async {
+    String memcacheResult = await SafeMemcache.get(_lastUpdateMemcacheKey);
 
     if (memcacheResult != null) {
       return int.parse(memcacheResult);
@@ -106,13 +106,13 @@ class Task {
         backingstore.sourceCloudStorageObjectPath);
   }
 
-  /// Notify this task that is has made progress
-  ping() async {
+  /// Record that this task has made progress
+  recordProgress() async {
     await _pullBackingStore();
 
     int msSinceEpoch = new DateTime.now().millisecondsSinceEpoch;
     // TODO: Replace this with CAS
-    SafeMemcache.set(_pingMemcacheKey, msSinceEpoch.toString());
+    SafeMemcache.set(_lastUpdateMemcacheKey, msSinceEpoch.toString());
     backingstore.lastUpdateEpochMs = msSinceEpoch;
     await _pushBackingStore();
   }
@@ -231,7 +231,8 @@ class TaskController {
       // Distributed sync on transition from READY -> ALLOCATED
       var memcache = ae.context.services.memcache;
 
-      String _stateMemcacheKey = "${model.key}-LifecycleState";
+      // TODO: Extract this to a common location
+      String _stateMemcacheKey = "${model.key}-lifecycleState";
       // Fast path test for conflict
       String memcacheState = await memcache.get(_stateMemcacheKey);
 

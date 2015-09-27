@@ -4,22 +4,26 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' as io;
 import 'dart:isolate';
 
-import 'package:crypto/crypto.dart';
-import 'package:gcloud/pubsub.dart' as gPubSub;
-import 'package:gcloud/db.dart' as gDb;
-import 'package:gcloud/src/datastore_impl.dart' as gDb_impl;
-
+import 'package:gcloud/db.dart' as db;
+import 'package:gcloud/service_scope.dart' as ss;
+import 'package:gcloud/src/datastore_impl.dart' as datastore_impl;
 import 'package:sintr_common/auth.dart' as auth;
+import 'package:sintr_common/auth.dart';
 import 'package:sintr_common/configuration.dart' as config;
-import 'package:sintr_common/pubsub_utils.dart' as ps;
-import 'package:sintr_common/storage_comms.dart' as storage_comms;
+import 'package:sintr_common/gae_utils.dart' as gae_utils;
 import 'package:sintr_common/logging_utils.dart' as logging_utils;
-import 'package:logging/logging.dart' as logging;
+import 'package:sintr_common/logging_utils.dart';
+import 'package:sintr_common/source_utils.dart';
+import 'package:sintr_common/tasks.dart' as tasks;
 
-final _log = new logging.Logger("worker");
+import 'package:memcache/memcache.dart' as mc;
+
+
+
+final _log = new logging_utils.Logger("worker");
 String workerFolder;
 const START_NAME = "worker_isolate.dart";
 
@@ -32,88 +36,121 @@ StreamController resultsController;
 Stream resultsStream;
 String shaCodeRunningInIsolate;
 
-var dbService;
+// var dbService;
 
 main(List<String> args) async {
   if (args.length != 3) {
-    print(
-        "Usage: dart startup.dart project_name control_channel worker_folder");
+    print ("Worker node for sintr");
+    print("Usage: dart startup.dart project_name job_name worker_folder");
     print(args);
-    exit(1);
+    io.exit(1);
   }
 
   logging_utils.setupLogging();
   _log.finest(args);
 
   String projectName = args[0];
-  String controlChannel = args[1];
+  String jobName = args[1];
   workerFolder = args[2];
 
   config.configuration = new config.Configuration(projectName,
       cryptoTokensLocation: "${config.userHomePath}/Communications/CryptoTokens");
 
   var client = await auth.getAuthedClient();
-  var pubsub = new gPubSub.PubSub(client, projectName);
-  dbService =
-      new gDb.DatastoreDB(new gDb_impl.DatastoreImpl(client, "s~$projectName"));
+  var dbService =
+      new db.DatastoreDB(new datastore_impl.DatastoreImpl(client, "s~$projectName"));
+      ss.fork(() async {
 
-  String topicName = "$controlChannel-topic";
-  String subscriptionName = "$controlChannel-subscription";
+        db.registerDbService(dbService);
 
-  // Need to ensure that the topic is created to ensure that the
-  // subscription doesn't fail.
-  gPubSub.Topic topic = await ps.getTopic(topicName, pubsub);
+        tasks.TaskController taskController =
+            new tasks.TaskController(jobName);
 
-  gPubSub.Subscription subscription =
-      await ps.getSubscription(subscriptionName, topicName, pubsub);
+            while (true) {
+               var task = await taskController.getNextReadyTask();
 
-  while (true) {
-    gPubSub.PullEvent event = await subscription.pull();
-    if (event != null) {
-      _handleEvent(event);
-      await event.acknowledge();
-    } else {
-      _log.info("${new DateTime.now()}: null event notification");
-    }
-  }
+               if (task == null) {
+                 _log.finer("Got null next ready task, sleeping");
+                 await new Future.delayed(new Duration(seconds: 5));
+                 continue;
+               }
+
+               Stopwatch sw = new Stopwatch()..start();
+               await _handleTask(task);
+               _log.fine(
+                 "PERF: Task $task completed in ${sw.elapsedMilliseconds}");
+            }
+
+      });
 }
 
-_handleEvent(gPubSub.PullEvent event) async {
-  _log.finest("${event.message.asString}");
+_handleTask(tasks.Task task) async {
+  _log.finer("Starting task $task");
 
-  String messageHandlingStart = new DateTime.now().toIso8601String();
-  Stopwatch executionTimer = new Stopwatch()..start();
-
+  Stopwatch sw = new Stopwatch()..start();
   try {
-    var msgMap = JSON.decode(event.message.asString);
-    var codeMap = msgMap["codeMap"];
-    _ensureCodeIsInstalled(codeMap);
 
-    var data = msgMap["data"];
-    _log.fine("Sending: $data");
-    sendPort.send(data);
+    task.setState(tasks.LifecycleState.STARTED);
 
+    // TODO: Cache source
+    String sourceJSON = await
+      gae_utils.CloudStorage.getFileContentsByLocation(await task.sourceLocation)
+      .transform(UTF8.decoder).join();
+
+    var sourceMap = JSON.decode(sourceJSON);
+    _ensureSourceIsInstalled(sourceMap);
+
+    gae_utils.CloudStorageLocation inputLocation = await task.inputSource;
+    String locationJSON =
+      JSON.encode([inputLocation.bucketName, inputLocation.objectPath]);
+
+    int elasped = sw.elapsedMilliseconds;
+    _log.finer("PERF: Source acquired: ${elasped}");
+
+    _log.fine("Sending: $locationJSON");
+    sendPort.send(locationJSON);
+
+    // TOOD: Replace this with a streaming write to cloud storage
     String response = await resultsStream.first;
     _log.fine("Response: $response");
 
-    int elasped = executionTimer.elapsedMilliseconds;
-    _log.finer("PERF: ${elasped}/ms");
+    elasped = sw.elapsedMilliseconds;
+    _log.finer("PERF: Response recieved ${elasped}/ms");
 
-    storage_comms.ResponseBlob responseBlob =
-        new storage_comms.ResponseBlob.FromData(msgMap["jobID"],
-            msgMap["requestID"], data, response, elasped, messageHandlingStart,
-            "OK");
+    var resultsLocation = await task.resultLocation;
+    String objectPathForResult = task.uniqueName;
 
-    _log.finest("Recording response");
-    await responseBlob.record(dbService);
-    _log.finest("Recording response completed");
+    await gae_utils.CloudStorage.writeFileBytes(
+      resultsLocation.bucketName, objectPathForResult,
+      UTF8.encode(response));
+
+    // await gae_utils.CloudStorage.writeFileContents(
+    //   resultsLocation.bucketName, objectPathForResult).addStream(
+    //     new Stream.fromIterable(UTF8.encode(response)));
+
+    elasped = sw.elapsedMilliseconds;
+    _log.finer("PERF: Result uploaded ${elasped}/ms");
+
+    await task.setState(tasks.LifecycleState.DONE);
+
+    // TODO: Move this into the task API rather than needing to edit
+    // the backing object
+    task.backingstore.resultCloudStorageObjectPath = objectPathForResult;
+    await task.recordProgress();
+
+    elasped = sw.elapsedMilliseconds;
+    _log.finer("Task $task Done: ${elasped}/ms");
+
   } catch (e, st) {
     _log.info("Worker threw an exception: $e\n$st");
+
+    // TODO: Model with failure count
+    task.setState(tasks.LifecycleState.DEAD);
   }
 }
 
-_ensureCodeIsInstalled(Map<String, String> codeMap) {
-  String sha = _computeCodeSha(codeMap);
+_ensureSourceIsInstalled(Map<String, String> codeMap) {
+  String sha = computeCodeSha(codeMap);
 
   if (sha == shaCodeRunningInIsolate) {
     _log.finest("Code already installed: $sha");
@@ -130,28 +167,12 @@ _ensureCodeIsInstalled(Map<String, String> codeMap) {
 
   // Write the code to the folder
   for (String sourceName in codeMap.keys) {
-    new File("$workerFolder$sourceName").writeAsStringSync(codeMap[sourceName]);
+    new io.File("$workerFolder$sourceName").writeAsStringSync(codeMap[sourceName]);
   }
   _setupIsolate("$workerFolder$START_NAME");
 
   _log.fine("Isolate started with sha: $sha");
   shaCodeRunningInIsolate = sha;
-}
-
-/// Compute a sha of the source, canonicallised using the order
-/// of the file names.
-String _computeCodeSha(Map<String, String> codeMap) {
-  var sortedKeys = codeMap.keys.toList()..sort();
-
-  StringBuffer sourceAggregate = new StringBuffer();
-  for (String key in sortedKeys) {
-    sourceAggregate.writeln(key);
-    sourceAggregate.writeln(codeMap[key]);
-  }
-
-  SHA1 sha1 = new SHA1();
-  sha1.add(sourceAggregate.toString().codeUnits);
-  return CryptoUtils.bytesToHex(sha1.close());
 }
 
 _setupIsolate(String startPath) async {

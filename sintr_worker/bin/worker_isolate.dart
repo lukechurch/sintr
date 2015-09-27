@@ -31,16 +31,18 @@ main(List<String> args, SendPort sendPort) {
 
 Future<String> _protectedHandle(String msg) async {
   try {
+    return JSON.encode({"result" : msg});
+
     // Unpack arguments
-    var inArgs = JSON.decode(msg);
-    _log.finest("inArgs: $msg");
-
-    String key = inArgs["key"];
-
-    var response = await map(key);
-
-    _log.finest("response: $response");
-    return JSON.encode(response);
+    // var inArgs = JSON.decode(msg);
+    // _log.finest("inArgs: $msg");
+    //
+    // String key = inArgs["key"];
+    //
+    // var response = await map(key);
+    //
+    // _log.finest("response: $response");
+    // return JSON.encode(response);
   } catch (e, st) {
     _log.fine("Execution erred. $e \n $st \n");
     _log.fine("Input data: $msg");
@@ -49,27 +51,27 @@ Future<String> _protectedHandle(String msg) async {
 }
 
 // Sample extractor
-
-Future<Map<String, List<String>>> map(String key) async {
-  Map<String, List<String>> retData = new Map<String, List<String>>();
-
-  retData["ErringFiles"] = [];
-  retData["Noti"] = [];
-
-  // Convert stream to individual lines.
-  await for (String ln in inst.logStream(key)) {
-    if (!ln.startsWith("~")) continue;
-
-    String timeStr = ln.split(':')[0].split("~")[1];
-
-    if (ln.contains('Noti:{"event"::"server.error"')) {
-      retData["ErringFiles"].add(key);
-    }
-
-    if (ln.contains("Noti")) {
-      retData["Noti"].add(timeStr);
-    }
-  }
-
-  return retData;
-}
+//
+// Future<Map<String, List<String>>> map(String key) async {
+//   Map<String, List<String>> retData = new Map<String, List<String>>();
+//
+//   retData["ErringFiles"] = [];
+//   retData["Noti"] = [];
+//
+//   // Convert stream to individual lines.
+//   await for (String ln in inst.logStream(key)) {
+//     if (!ln.startsWith("~")) continue;
+//
+//     String timeStr = ln.split(':')[0].split("~")[1];
+//
+//     if (ln.contains('Noti:{"event"::"server.error"')) {
+//       retData["ErringFiles"].add(key);
+//     }
+//
+//     if (ln.contains("Noti")) {
+//       retData["Noti"].add(timeStr);
+//     }
+//   }
+//
+//   return retData;
+// }

@@ -21,6 +21,8 @@ class Task {
   final db.Key _objectKey;
   _TaskModel backingstore;
 
+  String get uniqueName => "$_objectKey";
+
   String get _stateMemcacheKey => "$_objectKey-lifecycleState";
   String get _lastUpdateMemcacheKey => "$_objectKey-lastUpdateEpochMs";
 
@@ -187,13 +189,6 @@ class _TaskModel extends db.Model {
   }
 }
 
-class CloudStorageLocation {
-  final String bucketName;
-  final String objectPath;
-
-  CloudStorageLocation(this.bucketName, this.objectPath);
-}
-
 /// [LifecycleState] tracks a task through its lifetime
 enum LifecycleState {
   READY, // Ready for allocation
@@ -225,7 +220,7 @@ class TaskController {
 
     var query = _db.query(_TaskModel)
       ..filter("parentJobName =", jobName)
-      ..filter("lifecycleState = ", READY_STATE);
+      ..filter("lifecycleState =", READY_STATE);
 
     await for (_TaskModel model in query.run()) {
       // Distributed sync on transition from READY -> ALLOCATED

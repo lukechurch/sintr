@@ -7,6 +7,7 @@ library dm_feature_server.file_based_feature_cache;
 import 'dart:async';
 
 import 'package:appengine/appengine.dart' as ae;
+import 'package:gcloud/storage.dart' as storage;
 import 'package:sintr_common/logging_utils.dart' as logging;
 
 final _logger = new logging.Logger("gae_utils");
@@ -28,4 +29,14 @@ class SafeMemcache {
           'Soft-ERR memcache API call (error: $error)', error, stackTrace);
     });
   }
+}
+
+/// Support utils for clous storage buckets. They expect to be run in a service
+/// fork.
+class CloudStorage {
+  static Stream<List<int>> getFileContents(String bucketName, String objectPath) =>
+    storage.storageService.bucket(bucketName).read(objectPath);
+
+  static StreamSink<List<int>> writeFileContents(String bucketName, String objectPath) =>
+    storage.storageService.bucket(bucketName).write(objectPath);
 }

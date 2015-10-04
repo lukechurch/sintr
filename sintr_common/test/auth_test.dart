@@ -17,7 +17,8 @@ var _testClient;
 get testClient async {
   if (_testClient == null) {
     config.configuration = new config.Configuration('sintr-test',
-        cryptoTokensLocation: "${config.userHomePath}/Communications/CryptoTokens");
+        cryptoTokensLocation:
+            "${config.userHomePath}/Communications/CryptoTokens");
     _testClient = await auth.getAuthedClient();
   }
   return _testClient;

@@ -121,7 +121,7 @@ _handleTask(tasks.Task task) async {
     log.debug("Response: $response");
 
     elasped = sw.elapsedMilliseconds;
-    log.debug("PERF: Response recieved ${elasped}/ms");
+    log.perf("Response recieved", elasped);
 
     var resultsLocation = await task.resultLocation;
     String objectPathForResult = task.uniqueName;
@@ -135,7 +135,7 @@ _handleTask(tasks.Task task) async {
     //     new Stream.fromIterable(UTF8.encode(response)));
 
     elasped = sw.elapsedMilliseconds;
-    log.debug("PERF: Result uploaded ${elasped}/ms");
+    log.perf("Result uploaded", elasped);
 
     await task.setState(tasks.LifecycleState.DONE);
 
@@ -145,7 +145,7 @@ _handleTask(tasks.Task task) async {
     await task.recordProgress();
 
     elasped = sw.elapsedMilliseconds;
-    log.debug("Task $task Done: ${elasped}/ms");
+    log.perf("Task $task Done", elasped);
 
   } catch (e, st) {
     log.info("Worker threw an exception: $e\n$st");
@@ -172,7 +172,11 @@ _ensureSourceIsInstalled(Map<String, String> codeMap) {
   }
 
   // Write the code to the folder
+  // TODO: This needs corresponding teardown, otherwise we have to wipe the VMs
+  // between each execution
   for (String sourceName in codeMap.keys) {
+    // Ensure that the folder structures are in place
+    new io.File("$workerFolder$sourceName").createSync(recursive: true);
     new io.File("$workerFolder$sourceName").writeAsStringSync(codeMap[sourceName]);
   }
   _setupIsolate("$workerFolder$START_NAME");

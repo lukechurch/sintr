@@ -38,7 +38,7 @@ cd sintr_worker
 /usr/lib/dart/bin/pub get
 cd ..
 
-# Now in worker roout
+# Now in worker root
 
 cd sintr_worker
 

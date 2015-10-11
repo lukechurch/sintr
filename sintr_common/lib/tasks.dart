@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+library sintr_common.tasks;
+
 import 'dart:async';
 
 import 'package:gcloud/db.dart' as db;
@@ -20,7 +22,9 @@ class Task {
   final db.Key _objectKey;
   _TaskModel backingstore;
 
-  String get uniqueName => "${_objectKey.id}";
+  toString() => uniqueName;
+
+  String get uniqueName => "${_objectKey?.id}";
 
   /// Get the state of the task
   // The state machine for READY -> ALLOCATED is synchronised
@@ -265,6 +269,11 @@ class TaskController {
       List<CloudStorageLocation> inputLocations,
       CloudStorageLocation sourceLocation,
       String resultCloudStorageBucketName) async {
+
+        log.info("Creating ${inputLocations.length} tasks");
+
+        int count = 0;
+
     // TODO this needs resiliance adding to it to protect against
     // datastore errors
 
@@ -275,13 +284,19 @@ class TaskController {
       inserts.add(task);
 
       if (inserts.length >= DATASTORE_TRANSACTION_SIZE) {
+        count += inserts.length;
         await _db.commit(inserts: inserts);
+
+        log.info("Tasks committed: $count");
         inserts.clear();
       }
     }
 
     if (inserts.length > 0) {
+      count += inserts.length;
       await _db.commit(inserts: inserts);
+
+      log.info("Tasks committed: $count");
       inserts.clear();
     }
   }

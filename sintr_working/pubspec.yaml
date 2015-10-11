@@ -13,5 +13,6 @@ dependencies:
   crypto: '>=0.9.0 <0.10.0'
   sintr_common:
     path: ../sintr_common
+  intl: any
 dev_dependencies:
   test: '>=0.12.0 <0.13.0'

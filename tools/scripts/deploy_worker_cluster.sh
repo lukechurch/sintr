@@ -12,7 +12,7 @@ function deploy_cluster {
                     # $2 zone
                      WORKER_NAME_BASE=$1
                      ZONE=$2
-                     NODE_COUNT_PER_ZONE=5
+                     NODE_COUNT_PER_ZONE=2
 
                      echo "Deploying nodes in $2""
 
@@ -30,7 +30,7 @@ function deploy_cluster {
                           --preemptible \
                           --scopes "https://www.googleapis.com/auth/cloud-platform" \
                           --image "https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-1404-trusty-v20150909a" \
-                          --boot-disk-size "25" \
+                          --boot-disk-size "10" \
                           --boot-disk-type "pd-ssd" \
                           --boot-disk-device-name $WORKER_NAME &
                      done
@@ -54,7 +54,8 @@ function deploy_cluster {
 
 echo "Starting cluster"
 
-deploy_cluster "sintr-worker-uscc-" "us-central1-c"
-deploy_cluster "sintr-worker-useb-" "us-east1-b"
+deploy_cluster "sintr-worker-usc1c-" "us-central1-c"
+deploy_cluster "sintr-worker-use1b-" "us-east1-b"
+deploy_cluster "sintr-worker-usc2a-" "us-central2-a"
 
 echo "Cluster start complete"

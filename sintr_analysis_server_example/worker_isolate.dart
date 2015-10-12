@@ -33,9 +33,11 @@ Future<String> _protectedHandle(String msg) async {
     String objectPath = inputData[1];
     var logItems = [];
     int failureCount = 0;
+    int lines = 0;
 
     Stream dataStream = await getDataFromCloud(bucketName, objectPath);
     await for (String s in dataStream) {
+      lines++;
       try {
         String result = processor.processLine(s);
         if (result != null) logItems.add(result);
@@ -51,7 +53,11 @@ Future<String> _protectedHandle(String msg) async {
       failureCount++;
     }
 
-    return JSON.encode({"result": logItems, "failureCount": failureCount});
+    return JSON.encode({
+      "result": logItems,
+      "failureCount": failureCount,
+      "linesProcessed": lines
+    });
   } catch (e, st) {
     log.info("Execution erred. $e \n $st \n");
     log.debug("Input data: $msg");

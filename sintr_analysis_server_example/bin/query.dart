@@ -3,11 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:io' as io;
-
+import 'dart:async';
 import 'package:gcloud/db.dart' as db;
 import 'package:gcloud/service_scope.dart' as ss;
 import 'package:gcloud/src/datastore_impl.dart' as datastore_impl;
-import 'package:gcloud/storage.dart' as storage;
 import 'package:sintr_common/auth.dart';
 import "package:sintr_common/configuration.dart" as config;
 import 'package:sintr_common/logging_utils.dart';
@@ -16,34 +15,24 @@ import 'package:sintr_common/tasks.dart' as tasks;
 
 main(List<String> args) async {
   setupLogging();
+  bool loop = false;
 
-  if (args.length != 1 || args[0] != "--force") {
-    print("Clear results buckets and all control datastore elements");
-    print("Usage dart reset.dart --force");
+  // TODO: Replace this with the args parse package
+  if (args.length != 0 && (args.length != 1 && args[0] == "--loop")) {
+    print("Query the state of workers");
+    print("Usage dart query.dart [--loop]");
     io.exit(1);
   }
 
+  if (args.length == 1 && args[0] == "--loop") loop = true;
+
   String projectId = "liftoff-dev";
-  String resultsBucket = "liftoff-dev-results";
 
   config.configuration = new config.Configuration(projectId,
       cryptoTokensLocation:
           "${config.userHomePath}/Communications/CryptoTokens");
 
   var client = await getAuthedClient();
-
-  var stor = await new storage.Storage(client, projectId);
-  List<storage.BucketEntry> entries =
-      await stor.bucket(resultsBucket).list().toList();
-
-  print("Entries listed");
-
-  for (var entry in entries) {
-    print(entry.name);
-    await stor.bucket(resultsBucket).delete(entry.name);
-  }
-
-  print("Old results deleted");
 
   tasks.TaskController taskController =
       new tasks.TaskController("example_task");
@@ -53,10 +42,19 @@ main(List<String> args) async {
 
   log.info("Setup done");
 
-  ss.fork(() async {
+  await ss.fork(() async {
     db.registerDbService(datastoreDB);
 
-    await taskController.deleteAllTasks();
+    do {
+      var statesCount = await taskController.queryTaskState();
+
+      for (String key in statesCount.keys) {
+        var results = statesCount[key].keys.map((k) => "${tasks.LifecycleState.values[k]}: ${statesCount[key][k]}");
+        
+        print("$key: ${statesCount[key]} ${results.join(" ")}");
+      }
+      await new Future.delayed(new Duration(seconds: 5));
+    } while (loop);
+
   });
-  print("Tasks deleted");
 }

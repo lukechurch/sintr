@@ -13,10 +13,12 @@ class LogItemProcessor {
     }
     message.write(ln);
 
-    if (lastResult != null) {
+    if (lastResult != null && lastResult != "") {
+
+      if (!lastResult.startsWith("~")) return null;
+
       List<String> splits = lastResult.split(":");
       String msgType = splits[1];
-
       int time = int.parse(splits[0].substring(1));
       if (msgType == "Log" && splits[2] == "SEVERE") return lastResult;
     }
@@ -24,6 +26,10 @@ class LogItemProcessor {
 
   String close() {
     String lastResult = message.toString();
+
+    if (lastResult == null || lastResult == "") return null;
+    if (!lastResult.startsWith("~")) return null;
+
     List<String> splits = lastResult.split(":");
     String msgType = splits[1];
 

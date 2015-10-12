@@ -43,7 +43,7 @@ function deploy_cluster {
                          WORKER_NAME=$WORKER_NAME_BASE$i
                          echo "Init " $WORKER_NAME
                          gcloud compute --project "liftoff-dev" \
-                          ssh --zone $WORKER_NAME $WORKER_NAME \
+                          ssh --zone $ZONE $WORKER_NAME \
                           'gsutil cp gs://liftoff-dev-source/worker_startup.sh .; chmod +x worker_startup.sh; screen -d -m ./worker_startup.sh' &
                      done
                      wait
@@ -54,8 +54,8 @@ function deploy_cluster {
 
 echo "Starting cluster"
 
-deploy_cluster 'sintr-worker-usc1c-' 'us-central1-c'
-deploy_cluster 'sintr-worker-use1b-' 'us-east1-b'
-deploy_cluster 'sintr-worker-usc2a-' 'us-central2-a'
+deploy_cluster "sintr-worker-usc1c-" "us-central1-c"
+deploy_cluster "sintr-worker-use1b-" "us-east1-b"
+# deploy_cluster "sintr-worker-usc2a-" "us-central2-a"
 
 echo "Cluster start complete"

@@ -306,10 +306,48 @@ class TaskController {
 
     int i = 0;
     var query = _db.query(_TaskModel);
+    var deleteKeys = [];
+
     await for (var model in query.run()) {
-      await _db.commit(deletes: [model.key]);
-      i++;
+      deleteKeys.add(model.key);
+
+      if (deleteKeys.length >= DATASTORE_TRANSACTION_SIZE) {
+        await _db.commit(deletes: deleteKeys);
+        i += deleteKeys.length;
+        log.info("$i tasks deleted");
+        deleteKeys.clear();
+      }
+    }
+
+    if (deleteKeys.length > 0) {
+      await _db.commit(deletes: deleteKeys);
+      i += deleteKeys.length;
+
     }
     log.info("$i tasks deleted");
   }
+
+  Future<Map<String, Map<int, int>>> queryTaskState() async {
+    log.info("Query task state");
+
+    // Task -> state - count
+    Map<String, Map<int, int>> stateCounts = {};
+
+    int i = 0;
+    var query = _db.query(_TaskModel);
+    await for (_TaskModel model in query.run()) {
+      String parentJobName = model.parentJobName;
+      int state = model.lifecycleState;
+
+      stateCounts.putIfAbsent(parentJobName, () => { });
+      stateCounts[parentJobName].putIfAbsent(state, () => 0);
+      stateCounts[parentJobName][state]++;
+
+      i++;
+    }
+    log.info("$i tasks read");
+
+    return stateCounts;
+  }
+
 }

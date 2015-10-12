@@ -10,7 +10,7 @@ echo "Deploying Client code"
 # The next part is slow and can be done in parrallel
 
 echo "Deploying cluster"
-./tools/deploy_cluster.sh &
+./tools/scripts/deploy_worker_cluster.sh &
 
 echo "Creating tasks" &
 dart sintr_analysis_server_example/bin/create_tasks.dart

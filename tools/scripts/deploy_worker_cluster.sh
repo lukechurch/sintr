@@ -14,7 +14,7 @@ function deploy_cluster {
                      ZONE=$2
                      NODE_COUNT_PER_ZONE=2
 
-                     echo "Deploying nodes in $2""
+                     echo "Deploying nodes in $2"
 
                      for i in `seq 1 $NODE_COUNT_PER_ZONE`;
                      do
@@ -54,8 +54,8 @@ function deploy_cluster {
 
 echo "Starting cluster"
 
-deploy_cluster "sintr-worker-usc1c-" "us-central1-c"
-deploy_cluster "sintr-worker-use1b-" "us-east1-b"
-deploy_cluster "sintr-worker-usc2a-" "us-central2-a"
+deploy_cluster 'sintr-worker-usc1c-' 'us-central1-c'
+deploy_cluster 'sintr-worker-use1b-' 'us-east1-b'
+deploy_cluster 'sintr-worker-usc2a-' 'us-central2-a'
 
 echo "Cluster start complete"

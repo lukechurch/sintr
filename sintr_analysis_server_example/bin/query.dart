@@ -48,10 +48,21 @@ main(List<String> args) async {
     do {
       var statesCount = await taskController.queryTaskState();
 
+      bool readyTasksLeft = false;
+
       for (String key in statesCount.keys) {
         var results = statesCount[key].keys.map((k) => "${tasks.LifecycleState.values[k]}: ${statesCount[key][k]}");
-        
-        print("$key: ${statesCount[key]} ${results.join(" ")}");
+        log.info("$key: ${statesCount[key]} ${results.join(" ")}");
+
+        var readyCount = statesCount[key][tasks.LifecycleState.READY.index];
+        if (readyCount == null || readyCount == 0) {
+
+          // No more tasks ready
+          // TODO: This doesn't mean that the job is done. Improve detection
+
+          log.info("No more ready tasks closing loop");
+          break;
+        }
       }
       await new Future.delayed(new Duration(seconds: 5));
     } while (loop);

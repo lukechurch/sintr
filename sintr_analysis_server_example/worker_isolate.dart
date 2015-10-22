@@ -25,41 +25,60 @@ Future main(List<String> args, SendPort sendPort) async {
 }
 
 Future<String> _protectedHandle(String msg) async {
-  var processor = new LogItemProcessor();
-
   try {
     var inputData = JSON.decode(msg);
     String bucketName = inputData[0];
     String objectPath = inputData[1];
     var logItems = [];
+    var errItems = [];
     int failureCount = 0;
     int lines = 0;
+
+    LogItemProcessor proc = new LogItemProcessor(extractPerf);
 
     Stream dataStream = await getDataFromCloud(bucketName, objectPath);
     await for (String s in dataStream) {
       lines++;
       try {
-        String result = processor.processLine(s);
-        if (result != null) logItems.add(result);
+        proc.addRawLine(s);
+
+        String nextMessage;
+        while (proc.hasMoreMessages) {
+          nextMessage = proc.readNextMessage();
+          if (nextMessage != null) logItems.add(nextMessage);
+        }
       } catch (e, st) {
+        log.info("Message proc erred. $e \n $st \n");
+        errItems
+            .add({"lastBlock": false, "rawDataLine": s, "exception": "$e", "stackTrace": "$st"});
         failureCount++;
       }
     }
 
     try {
-      String result = processor.close();
-      if (result != null) logItems.add(result);
+      proc.close();
+
+      String nextMessage;
+      while (proc.hasMoreMessages) {
+        nextMessage = proc.readNextMessage();
+        if (nextMessage != null) logItems.add(nextMessage);
+      }
     } catch (e, st) {
+      log.info("Message proc erred. $e \n $st \n");
+      errItems
+          .add({"lastBlock": true, "exception": "$e", "stackTrace": "$st"});
       failureCount++;
     }
 
     return JSON.encode({
       "result": logItems,
       "failureCount": failureCount,
-      "linesProcessed": lines
+      "errItems": errItems,
+      "linesProcessed": lines,
+      "input": "gs://$bucketName/$objectPath"
     });
   } catch (e, st) {
-    log.info("Execution erred. $e \n $st \n");
+    log.info("Message proc erred. $e \n $st \n");
     log.debug("Input data: $msg");
     return JSON.encode({"error": "${e}", "stackTrace": "${st}"});
   }

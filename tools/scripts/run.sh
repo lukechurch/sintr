@@ -1,3 +1,7 @@
+
+# Halt on the first error
+set -e
+
 echo "Resetting"
 dart sintr_analysis_server_example/bin/reset.dart --force
 
@@ -21,4 +25,4 @@ dart sintr_analysis_server_example/bin/query.dart --loop
 
 # When we're here the job is done
 echo "Deleting cluster"
-./tools/delete_cluster.sh
+./tools/scripts/delete_cluster.sh

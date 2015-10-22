@@ -9,7 +9,7 @@ function delete_cluster {
                     # $2 zone
                      WORKER_NAME_BASE=$1
                      ZONE=$2
-                     NODE_COUNT_PER_ZONE=2
+                     NODE_COUNT_PER_ZONE=20
 
                      echo "Deleting nodes in $2"
 

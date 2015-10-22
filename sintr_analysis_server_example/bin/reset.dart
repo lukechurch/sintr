@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:io' as io;
-
+import 'dart:async';
 import 'package:gcloud/db.dart' as db;
 import 'package:gcloud/service_scope.dart' as ss;
 import 'package:gcloud/src/datastore_impl.dart' as datastore_impl;
@@ -38,9 +38,24 @@ main(List<String> args) async {
 
   print("Entries listed");
 
+  List<Future> deleteFutures = [];
+
+  int i = 0;
+  const BLOCK_COUNT = 50;
+
   for (var entry in entries) {
-    print(entry.name);
-    await stor.bucket(resultsBucket).delete(entry.name);
+
+    deleteFutures.add(stor.bucket(resultsBucket).delete(entry.name));
+    if (i++ % BLOCK_COUNT == 0) {
+      for (Future f in deleteFutures) {
+        await f;
+      }
+
+      print ("Deleted: $i");
+    }
+  }
+  for (Future f in deleteFutures) {
+    await f;
   }
 
   print("Old results deleted");

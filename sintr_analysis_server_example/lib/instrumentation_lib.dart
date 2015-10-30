@@ -79,9 +79,6 @@ final extractMsgSeq = (String ln) {
   return [time, msgType];
 };
 
-
-
-
 class LogItemProcessor {
   var filterLine;
   InstrumentationProcessor processor = new InstrumentationProcessor();

@@ -16,7 +16,8 @@ import "package:sintr_common/gae_utils.dart" as gae_utils;
 
 // TODO: Migrate the parameters of this file to the configuation common lib
 
-Future createTasks(String bucket, List<String> objectNames) async {
+Future createTasks(String sourceBucket, List<String> objectNames,
+{resultsBucket: "liftoff-dev-results", codeBucket: "liftoff-dev-source"}) async {
   String projectId = config.configuration.projectName;
 
   var client = await getAuthedClient();
@@ -33,7 +34,7 @@ Future createTasks(String bucket, List<String> objectNames) async {
 
     var taskList = [];
     for (String objectName in objectNames) {
-      taskList.add(new gae_utils.CloudStorageLocation(bucket, objectName));
+      taskList.add(new gae_utils.CloudStorageLocation(sourceBucket, objectName));
     }
 
     bool ok = false;
@@ -45,10 +46,10 @@ Future createTasks(String bucket, List<String> objectNames) async {
             taskList,
             // Source locations
             new gae_utils.CloudStorageLocation(
-                "liftoff-dev-source", "test_worker.json"),
+                codeBucket, "test_worker.json"),
 
             // results
-            "liftoff-dev-results");
+            resultsBucket);
             ok = true;
             break;
 

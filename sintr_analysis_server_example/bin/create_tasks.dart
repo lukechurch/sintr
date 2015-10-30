@@ -16,9 +16,9 @@ main(List<String> args) async {
     print("Create tasks for workers");
     io.exit(1);
   }
-  
+
   String projectId = "liftoff-dev";
-  String inputDataBucket = "liftoff-dev-datasources";
+  String inputDataBucket = "liftoff-dev-datasources-analysis-server-sessions-sorted";
 
   config.configuration = new config.Configuration(projectId,
       cryptoTokensLocation:
@@ -29,10 +29,10 @@ main(List<String> args) async {
   var stor = await new storage.Storage(client, projectId);
   List<storage.BucketEntry> entries = await stor
       .bucket(inputDataBucket)
-      .list(prefix: "analysis-server-sessions")
+      .list() //prefix: "analysis-server-sessions")
       .toList();
 
   List<String> objectPaths = entries.map((be) => be.name).toList();
-  await task_utils.createTasks("liftoff-dev-datasources", objectPaths);
+  await task_utils.createTasks(inputDataBucket, objectPaths);
   print ("${objectPaths.length} tasks created");
 }

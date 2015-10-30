@@ -41,7 +41,7 @@ main(List<String> args) async {
   List<Future> deleteFutures = [];
 
   int i = 0;
-  const BLOCK_COUNT = 50;
+  const BLOCK_COUNT = 250;
 
   for (var entry in entries) {
 

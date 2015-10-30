@@ -42,10 +42,12 @@ cd ..
 
 cd sintr_worker
 
-INSTANCE_ID=$(curl http://metadata/computeMetadata/v1/instance/hostname -H "Metadata-Flavor: Google")
-NOW=$(date +"%Y-%m-%d-%H-%M-%S")
+while true; do
+  INSTANCE_ID=$(curl http://metadata/computeMetadata/v1/instance/hostname -H "Metadata-Flavor: Google")
+  NOW=$(date +"%Y-%m-%d-%H-%M-%S")
 
+  dart -c bin/startup.dart liftoff-dev example_task $(readlink -f ../sintr_working)/ > ../$INSTANCE_ID-$NOW.log 2>&1
 
-dart -c bin/startup.dart liftoff-dev example_task $(readlink -f ../sintr_working)/ > ../$INSTANCE_ID-$NOW.log 2>&1
-
-gsutil cp ../$INSTANCE_ID-$NOW.log gs://liftoff-dev-worker-logs
+  gsutil cp ../$INSTANCE_ID-$NOW.log gs://liftoff-dev-worker-logs
+  sleep 5
+done

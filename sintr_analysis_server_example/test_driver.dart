@@ -5,6 +5,12 @@
 import 'dart:convert';
 import 'dart:io' as io;
 
+import 'package:sintr_worker_lib/completion_metrics.dart'
+    show
+        completionExtraction,
+        completionExtractionFinished,
+        completionReduction,
+        completionReductionMerge;
 import 'package:sintr_worker_lib/instrumentation_lib.dart';
 
 main(List<String> args) async {
@@ -17,12 +23,13 @@ main(List<String> args) async {
   String path = args[0];
   var f = new io.File(path);
 
-  LogItemProcessor proc = new LogItemProcessor(extractPerf);
+  LogItemProcessor proc = new LogItemProcessor(completionExtraction);
+  var extracted = <String>[];
 
+  /// Process each line to extract information
   await for (String ln
       in f.openRead().transform(UTF8.decoder).transform(new LineSplitter())) {
     proc.addRawLine(ln);
-
 
     String nextMessage;
     while (proc.hasMoreMessages) {
@@ -30,12 +37,15 @@ main(List<String> args) async {
         nextMessage = null;
         nextMessage = proc.readNextMessage();
       } catch (e, st) {
-        print("Error in line $e $st");
+        var exMsg = e.toString();
+        if (exMsg.length > 300) exMsg = '${exMsg.substring(0, 300)} ...';
+        print("Error in line \n${exMsg} \n$st");
       }
 
-
-
-      if (nextMessage != null) print(nextMessage);
+      if (nextMessage != null) {
+        print(nextMessage);
+        extracted.add(nextMessage);
+      }
       // if (nextMessage != null) print("${nextMessage[0]}, ${nextMessage[1]}");
       //
       // String messageType = nextMessage[1];
@@ -45,4 +55,33 @@ main(List<String> args) async {
     }
   }
 
+  // Finish the extraction process
+  var finalResults = completionExtractionFinished();
+  if (finalResults is String) {
+    print(finalResults);
+  } else if (finalResults is List<String>) {
+    finalResults.forEach((ln) {
+      extracted.add(ln);
+      print(ln);
+    });
+  }
+
+  // Reduce the information into two separate result maps
+  var reduced1 = <String, dynamic>{};
+  var reduced2 = <String, dynamic>{};
+  int index = 0;
+  while (index < extracted.length / 2) {
+    reduced1 = completionReduction(extracted[index], reduced1);
+    ++index;
+  }
+  print(reduced1);
+  while (index < extracted.length) {
+    reduced2 = completionReduction(extracted[index], reduced2);
+    ++index;
+  }
+  print(reduced2);
+
+  // Merge the result maps
+  var reduced = completionReductionMerge(reduced1, reduced2);
+  print(reduced);
 }

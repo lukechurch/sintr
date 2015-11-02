@@ -9,7 +9,7 @@ import 'package:sintr_worker_lib/completion_metrics.dart'
     show
         completionExtraction,
         completionExtractionFinished,
-        completionReduction,
+        completionReducer,
         completionReductionMerge;
 import 'package:sintr_worker_lib/instrumentation_lib.dart';
 
@@ -71,12 +71,12 @@ main(List<String> args) async {
   var reduced2 = <String, dynamic>{};
   int index = 0;
   while (index < extracted.length / 2) {
-    reduced1 = completionReduction(extracted[index], reduced1);
+    reduced1 = completionReducer(extracted[index], reduced1);
     ++index;
   }
   print(reduced1);
   while (index < extracted.length) {
-    reduced2 = completionReduction(extracted[index], reduced2);
+    reduced2 = completionReducer(extracted[index], reduced2);
     ++index;
   }
   print(reduced2);

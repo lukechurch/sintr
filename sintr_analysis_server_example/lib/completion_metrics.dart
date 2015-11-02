@@ -39,9 +39,9 @@ final completionExtractionFinished = () {
 
 /// Process log line that was encoded by [_composeExtractionResult]
 /// and return a map of current results
-final completionReduction = (String logLine, Map results) {
+final completionReducer = (String extractionResult, Map results) {
   // Extract completion information
-  var split = logLine.split(',');
+  var split = extractionResult.split(',');
   var sdkVersion = split[0];
   var completionTime = int.parse(split[1]);
 
@@ -184,15 +184,17 @@ String _processNotification(int time, String event, String logMessageText) {
   if (event == 'completion.results') {
     if (!logMessageText.endsWith(',"isLast"::true}}')) return null;
     var prefix = '{"event"::"completion.results","params"::{"id"::"';
-    if (!logMessageText
-        .startsWith(prefix)) throw 'expected $prefix in $logMessageText';
+    if (!logMessageText.startsWith(prefix)) {
+      throw 'expected $prefix in $logMessageText';
+    }
     int start = prefix.length;
     int end = logMessageText.indexOf('"', start);
     if (end == -1) throw 'expected notification id in $logMessageText';
     String notificationId = logMessageText.substring(start, end);
     _Completion completion = _notificationMap.remove(notificationId);
-    if (completion ==
-        null) throw 'expected completion request for $logMessageText';
+    if (completion == null) {
+      throw 'expected completion request for $logMessageText';
+    }
     return _composeExtractionResult(completion, time - completion.requestTime);
   }
   return null;

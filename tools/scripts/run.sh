@@ -1,4 +1,8 @@
-echo "Resetting"
+
+# Halt on the first error
+set -e
+
+echo "Reseting"
 dart sintr_analysis_server_example/bin/reset.dart --force
 
 echo "Deploying Sintr"
@@ -10,9 +14,9 @@ echo "Deploying Client code"
 # The next part is slow and can be done in parrallel
 
 echo "Deploying cluster"
-./tools/deploy_cluster.sh &
+./tools/scripts/deploy_worker_cluster.sh &
 
-echo "Creating tasks" &
+echo "Creating tasks"
 dart sintr_analysis_server_example/bin/create_tasks.dart
 
 echo "Starting monitoring loop"
@@ -21,4 +25,4 @@ dart sintr_analysis_server_example/bin/query.dart --loop
 
 # When we're here the job is done
 echo "Deleting cluster"
-./tools/delete_cluster.sh
+./tools/scripts/delete_cluster.sh

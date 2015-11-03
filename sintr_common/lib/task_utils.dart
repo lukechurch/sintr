@@ -16,8 +16,8 @@ import "package:sintr_common/gae_utils.dart" as gae_utils;
 
 // TODO: Migrate the parameters of this file to the configuation common lib
 
-Future createTasks (String bucket, List<String> objectNames) async {
-
+Future createTasks(String sourceBucket, List<String> objectNames,
+{resultsBucket: "liftoff-dev-results", codeBucket: "liftoff-dev-source"}) async {
   String projectId = config.configuration.projectName;
 
   var client = await getAuthedClient();
@@ -27,28 +27,40 @@ Future createTasks (String bucket, List<String> objectNames) async {
   log.info("Setup done");
 
   ss.fork(() async {
-
     db.registerDbService(datastoreDB);
 
     tasks.TaskController taskController =
         new tasks.TaskController("example_task");
 
-
     var taskList = [];
     for (String objectName in objectNames) {
-      taskList.add(new gae_utils.CloudStorageLocation(bucket, objectName));
+      taskList.add(new gae_utils.CloudStorageLocation(sourceBucket, objectName));
     }
 
-    await taskController.createTasks(
-      // Input locations
-      taskList,
-    // Source locations
-    new gae_utils.CloudStorageLocation("liftoff-dev-source", "test_worker.json"),
+    bool ok = false;
+    // Dumb retry loop
+    for (int tryCount = 0; tryCount < 3; tryCount++) {
+      try {
+        await taskController.createTasks(
+            // Input locations
+            taskList,
+            // Source locations
+            new gae_utils.CloudStorageLocation(
+                codeBucket, "test_worker.json"),
 
-    // results
-    "liftoff-dev-results");
+            // results
+            resultsBucket);
+            ok = true;
+            break;
+
+      } catch (e, st) {
+        print("Error: $e $st");
+        print("retry");
+      }
+    }
+
+    if (!ok) throw "Create tasks failed";
 
     log.info("Tasks created");
   });
-
 }

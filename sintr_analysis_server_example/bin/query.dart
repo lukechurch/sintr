@@ -59,11 +59,13 @@ main(List<String> args) async {
 
           // No more tasks ready
           // TODO: This doesn't mean that the job is done. Improve detection
-
-          log.info("No more ready tasks closing loop");
-          break;
+        } else {
+          readyTasksLeft = true;
         }
       }
+
+      if (!readyTasksLeft) break;
+
       await new Future.delayed(new Duration(seconds: 5));
     } while (loop);
 

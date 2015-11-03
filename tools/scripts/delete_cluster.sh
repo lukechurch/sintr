@@ -27,7 +27,8 @@ function delete_cluster {
 
 echo "Starting delete"
 
-delete_cluster "sintr-worker-uscc-" "us-central1-c"
-delete_cluster "sintr-worker-useb-" "us-east1-b"
+delete_cluster "sintr-worker-usc1c-" "us-central1-c"
+delete_cluster "sintr-worker-use1b-" "us-east1-b"
+# delete_cluster "sintr-worker-usc2a-" "us-central2-a"
 
 echo "Cluster delete completed"

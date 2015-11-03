@@ -11,7 +11,7 @@ import 'package:sintr_common/gae_utils.dart';
 import 'package:sintr_common/logging_utils.dart' as log;
 import 'package:uuid/uuid.dart';
 
-const int DATASTORE_TRANSACTION_SIZE = 100;
+const int DATASTORE_TRANSACTION_SIZE = 250;
 const String _UNALLOCATED_OWNER = "";
 
 db.DatastoreDB _db = db.dbService;

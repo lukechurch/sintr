@@ -7,11 +7,13 @@ import 'dart:io' as io;
 
 import 'package:sintr_worker_lib/completion_metrics.dart'
     show
+        completionExtractionStart,
         completionExtraction,
         completionExtractionFinished,
         completionReducer,
         completionReductionMerge;
 import 'package:sintr_worker_lib/instrumentation_lib.dart';
+import 'dart:async';
 
 main(List<String> args) async {
   if (args.length != 1) {
@@ -21,39 +23,21 @@ main(List<String> args) async {
   }
 
   String path = args[0];
+  var sessionInfo = await loadSessionInfo(path);
   var f = new io.File(path);
 
+  completionExtractionStart(sessionInfo);
   LogItemProcessor proc = new LogItemProcessor(completionExtraction);
   var extracted = <String>[];
 
-  /// Process each line to extract information
+  // Process each line to extract information
   await for (String ln
       in f.openRead().transform(UTF8.decoder).transform(new LineSplitter())) {
     proc.addRawLine(ln);
-
-    String nextMessage;
-    while (proc.hasMoreMessages) {
-      try {
-        nextMessage = null;
-        nextMessage = proc.readNextMessage();
-      } catch (e, st) {
-        var exMsg = e.toString();
-        if (exMsg.length > 300) exMsg = '${exMsg.substring(0, 300)} ...';
-        print("Error in line \n${exMsg} \n$st");
-      }
-
-      if (nextMessage != null) {
-        print(nextMessage);
-        extracted.add(nextMessage);
-      }
-      // if (nextMessage != null) print("${nextMessage[0]}, ${nextMessage[1]}");
-      //
-      // String messageType = nextMessage[1];
-      // msgTyps.putIfAbsent(messageType, () => msgTyps.length);
-      // print("${nextMessage[0]}, ${msgTyps[messageType]}");
-
-    }
+    processMessages(proc, extracted);
   }
+  proc.close();
+  processMessages(proc, extracted);
 
   // Finish the extraction process
   var finalResults = completionExtractionFinished();
@@ -84,4 +68,56 @@ main(List<String> args) async {
   // Merge the result maps
   var reduced = completionReductionMerge(reduced1, reduced2);
   print(reduced);
+}
+
+Future<Map> loadSessionInfo(String path) async {
+  var index = path.indexOf('-', path.lastIndexOf('/'));
+  var priPath = '${path.substring(0, index)}-PRI${path.substring(index + 1)}';
+  var f = new io.File(priPath);
+
+  var firstLine;
+  LogItemProcessor proc = new LogItemProcessor((line) {
+    if (firstLine == null) firstLine = line;
+  });
+  await for (String ln
+      in f.openRead().transform(UTF8.decoder).transform(new LineSplitter())) {
+    proc.addRawLine(ln);
+    processMessages(proc);
+  }
+  proc.close();
+  processMessages(proc);
+
+  var data = firstLine.split(':');
+  return {
+    'uuid': data[2],
+    'clientId': data[3],
+    'clientVersion': data[4],
+    'serverVersion': data[5],
+    'sdkVersion': data[6]
+  };
+}
+
+void processMessages(LogItemProcessor proc, [List<String> extracted]) {
+  String nextMessage;
+  while (proc.hasMoreMessages) {
+    try {
+      nextMessage = null;
+      nextMessage = proc.readNextMessage();
+    } catch (e, st) {
+      var exMsg = e.toString();
+      if (exMsg.length > 300) exMsg = '${exMsg.substring(0, 300)} ...';
+      print("Error in line \n${exMsg} \n$st");
+    }
+
+    if (nextMessage != null) {
+      print(nextMessage);
+      if (extracted != null) extracted.add(nextMessage);
+    }
+    // if (nextMessage != null) print("${nextMessage[0]}, ${nextMessage[1]}");
+    //
+    // String messageType = nextMessage[1];
+    // msgTyps.putIfAbsent(messageType, () => msgTyps.length);
+    // print("${nextMessage[0]}, ${msgTyps[messageType]}");
+
+  }
 }

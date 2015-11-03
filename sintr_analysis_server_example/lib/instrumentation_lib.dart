@@ -128,7 +128,7 @@ class InstrumentationProcessor {
         throw "Two sessions in one file: $sessionID, ${dataMap[sessionID]}";
       }
     } else {
-      sessionID = dataMap[sessionID];
+      sessionID = dataMap["sessionID"];
     }
 
     int nextMsgN = dataMap["msgN"];

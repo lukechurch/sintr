@@ -1,12 +1,15 @@
 # Don’t commit the following directories created by pub.
 .buildlog
-.idea
 .packages
 .project
 .pub/
 .settings
 build/
 packages
+
+# Or files created by IntelliJ
+.idea
+*.iml
 
 # Or the files created by dart2js.
 *.dart.js

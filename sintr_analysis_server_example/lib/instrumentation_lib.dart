@@ -18,14 +18,6 @@ _sanityCheck(String ln) {
       3) throw "Message signature validation failed no Msgtype";
 }
 
-final extractLogs = (ln) {
-  List<String> splits = ln.split(":");
-  String msgType = splits[1];
-  // int time = int.parse(splits[0].substring(1));
-  if (msgType == "Log") return ln;
-  else return null;
-};
-
 final extractPerf = (String ln) {
   _sanityCheck(ln);
   List<String> splits = ln.split(":");

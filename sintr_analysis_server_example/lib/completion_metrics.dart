@@ -2,9 +2,10 @@ library sintr_worker_lib.completion;
 
 import 'dart:math' as math;
 
-// TODO(danrubel) ???
-/// Return the Dart SDK version info for the session being extracted
-String get extractedSdkVersion => 'unknown';
+/// Initialize the completion extraction process
+final completionExtractionStart = (Map sessionInfo) {
+  _sdkVersion = sessionInfo['sdkVersion'] ?? 'unknown';
+};
 
 /// Process a log entry and return a string representing the result
 /// or `null` if no result from the given log entry.
@@ -115,6 +116,9 @@ final QUOTE = '"'.codeUnitAt(0);
 final TOTAL = 'total';
 final VERSION = 'version';
 
+/// The SDK version
+String _sdkVersion = 'unset';
+
 /// A mapping of completion notification ID to information abou the completion.
 /// Elements are added when a completion response is found
 /// and removed when the final notification is found.
@@ -126,7 +130,7 @@ Map<String, _Completion> _notificationMap = <String, _Completion>{};
 Map<String, _Completion> _requestMap = <String, _Completion>{};
 
 String _composeExtractionResult(_Completion completion, int completionTime) =>
-    '$extractedSdkVersion,$completionTime';
+    '$_sdkVersion,$completionTime';
 
 /// Search the given [logMessageText] for the given [key]
 /// and return the associated value.

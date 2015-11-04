@@ -7,7 +7,7 @@ import 'dart:convert';
 import 'dart:io' as io;
 
 import 'package:sintr_worker_lib/completion_metrics.dart';
-import 'package:sintr_worker_lib/instrumentation_lib.dart';
+import 'package:sintr_worker_lib/instrumentation_transformer.dart';
 import 'package:sintr_worker_lib/session_info.dart';
 
 main(List<String> args) async {
@@ -22,17 +22,29 @@ main(List<String> args) async {
   var f = new io.File(path);
 
   completionExtractionStart(sessionInfo);
-  LogItemProcessor proc = new LogItemProcessor(completionExtraction);
   var extracted = <String>[];
 
   // Process each line to extract information
-  await for (String ln
-      in f.openRead().transform(UTF8.decoder).transform(new LineSplitter())) {
-    proc.addRawLine(ln);
-    processMessages(proc, extracted);
+  await for (String logEntry in f
+      .openRead()
+      .transform(UTF8.decoder)
+      .transform(new LineSplitter())
+      .transform(new LogItemTransformer())
+      .handleError((e, s) {
+    var exMsg = e.toString();
+    if (exMsg.length > 300) exMsg = '${exMsg.substring(0, 300)} ...';
+    print("Error reading line \n${exMsg} \n$s");
+  })) {
+    try {
+      var result = completionExtraction(logEntry);
+      if (result != null) {
+        print(result);
+        if (extracted != null) extracted.add(result);
+      }
+    } catch (e, s) {
+      print('$e\n$s');
+    }
   }
-  proc.close();
-  processMessages(proc, extracted);
 
   // Finish the extraction process
   var finalResults = completionExtractionFinished();
@@ -70,7 +82,7 @@ Future<Map> loadSessionInfo(String path) async {
   var index = path.indexOf('-', path.lastIndexOf('/'));
   var sessionId = path.substring(index + 1, path.length - 5);
   if (sessionId.startsWith('PRI')) {
-    return {'sessionId': sessionId.substring(3)};
+    return {SESSION_ID: sessionId.substring(3)};
   }
 
   var priPath = '${path.substring(0, index)}-PRI$sessionId.json';

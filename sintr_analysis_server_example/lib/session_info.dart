@@ -6,36 +6,35 @@ library sintr_worker_lib.session_info;
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' as io;
 
-import 'package:sintr_worker_lib/completion_metrics.dart';
-import 'package:sintr_worker_lib/instrumentation_processor.dart';
+import 'package:sintr_worker_lib/instrumentation_transformer.dart';
+
+final SESSION_ID = 'sessionId';
+final CLIENT_START_TIME = 'clientStartTime';
+final UUID = 'uuid';
+final CLIENT_ID = 'clientId';
+final CLIENT_VERSION = 'clientVersion';
+final SERVER_VERSION = 'serverVersion';
+final SDK_VERSION = 'sdkVersion';
 
 Future<Map> readSessionInfo(String sessionId, Stream<List<int>> stream) async {
-  String firstLine;
-  LogItemProcessor proc = new LogItemProcessor((line) {
-    if (firstLine == null) firstLine = line;
-  });
-  await for (String ln
-  in stream.transform(UTF8.decoder).transform(new LineSplitter())) {
-    proc.addRawLine(ln);
-    processMessages(proc);
-  }
-  proc.close();
-  processMessages(proc);
-
+  String firstLine = await stream
+      .transform(UTF8.decoder)
+      .transform(new LineSplitter())
+      .transform(new LogItemTransformer())
+      .first;
   return parseSessionInfo(sessionId, firstLine);
 }
 
 Map parseSessionInfo(String sessionId, String firstLine) {
   var data = firstLine.split(':');
   return {
-    'sessionId': sessionId,
-    'clientStartTime': data[0].substring(1),
-    'uuid': data[2],
-    'clientId': data[3],
-    'clientVersion': data[4],
-    'serverVersion': data[5],
-    'sdkVersion': data[6]
+    SESSION_ID: sessionId,
+    CLIENT_START_TIME: data[0].substring(1),
+    UUID: data[2],
+    CLIENT_ID: data[3],
+    CLIENT_VERSION: data[4],
+    SERVER_VERSION: data[5],
+    SDK_VERSION: data[6]
   };
 }

@@ -9,6 +9,53 @@ import 'dart:io' as io;
 
 import 'package:crypto/crypto.dart' as crypto;
 
+/// Return the log entry if it is a "Log" message, otherwise return `null`
+final extractLogs = (ln) {
+  List<String> splits = ln.split(":");
+  String msgType = splits[1];
+  // int time = int.parse(splits[0].substring(1));
+  if (msgType == "Log") return ln;
+  else return null;
+};
+
+/// Decode chunks that have been added via [LogItemProcessor].addRawLine(...)
+/// and process all resulting log messages. Append results to [#extracted]
+/// if it has been supplied.
+///
+///     var stream = f.openRead().transform(UTF8.decoder)
+///                              .transform(new LineSplitter());
+///     await for (String ln in stream) {
+///       proc.addRawLine(ln);
+///       processMessages(proc, extracted);
+///     }
+///     proc.close();
+///     processMessages(proc, extracted);
+///
+void processMessages(LogItemProcessor proc, [List<String> extracted]) {
+  String nextMessage;
+  while (proc.hasMoreMessages) {
+    try {
+      nextMessage = null;
+      nextMessage = proc.readNextMessage();
+    } catch (e, st) {
+      var exMsg = e.toString();
+      if (exMsg.length > 300) exMsg = '${exMsg.substring(0, 300)} ...';
+      print("Error in line \n${exMsg} \n$st");
+    }
+
+    if (nextMessage != null) {
+      print(nextMessage);
+      if (extracted != null) extracted.add(nextMessage);
+    }
+    // if (nextMessage != null) print("${nextMessage[0]}, ${nextMessage[1]}");
+    //
+    // String messageType = nextMessage[1];
+    // msgTyps.putIfAbsent(messageType, () => msgTyps.length);
+    // print("${nextMessage[0]}, ${msgTyps[messageType]}");
+
+  }
+}
+
 /// [InstrumentationProcessor] decodes compressed chunks of instrumentation
 /// data into instrumentation messages.
 class InstrumentationProcessor {

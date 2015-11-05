@@ -2,7 +2,7 @@ library sintr_worker_lib.instrumentation_lib;
 
 import 'dart:convert';
 
-export 'instrumentation_processor.dart';
+export '../instrumentation_processor.dart';
 
 _sanityCheck(String ln) {
   //~1422655684588:Noti:

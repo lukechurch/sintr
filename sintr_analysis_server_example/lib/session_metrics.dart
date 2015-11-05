@@ -6,9 +6,11 @@ library sintr_worker_lib.session_metrics;
 
 import 'dart:convert';
 
+import 'package:sintr_worker_lib/session_info.dart';
+
 /// Initialize the session info extraction process
 final sessionInfoExtractionStart = (Map sessionInfo) {
-  _sessionId = sessionInfo['sessionId'] ?? 'unknown';
+  _sessionId = sessionInfo[SESSION_ID] ?? 'unknown';
 };
 
 /// Process a log entry and return a string representing the result
@@ -19,23 +21,14 @@ final sessionInfoExtraction = (String logEntryText) {
 
   int index1 = logEntryText.indexOf(':', 1);
   if (index1 == -1) return null;
-  int time = int.parse(logEntryText.substring(1, index1));
+  //int time = int.parse(logEntryText.substring(1, index1));
 
   int index2 = logEntryText.indexOf(':', index1 + 1);
   if (index2 == -1) return null;
   String msgType = logEntryText.substring(index1 + 1, index2);
 
   if (msgType == 'Ver') {
-    var data = logEntryText.split(':');
-    return JSON.encode({
-      'sessionId': _sessionId,
-      'clientStartTime': data[0].substring(1),
-      'uuid': data[2],
-      'clientId': data[3],
-      'clientVersion': data[4],
-      'serverVersion': data[5],
-      'sdkVersion': data[6]
-    });
+    return parseSessionInfo(_sessionId, logEntryText);
   }
   //throw 'unknown msgType $msgType in $logMessageText';
   return null;
@@ -49,12 +42,12 @@ final sessionInfoReducer = (String extractionResult, Map results) {
   Map sessionInfo = JSON.decode(extractionResult);
 
   // Extract session information
-  var clientStartTime = int.parse(sessionInfo['clientStartTime']);
+  var clientStartTime = int.parse(sessionInfo[CLIENT_START_TIME]);
   String clientStartDate =
       new DateTime.fromMillisecondsSinceEpoch(clientStartTime)
           .toIso8601String()
           .substring(0, 10); // yyyy-MM-dd
-  String sdkVersion = sessionInfo['sdkVersion'];
+  String sdkVersion = sessionInfo[SDK_VERSION];
 
   // Extract current results for date
   Map dateResults = results.putIfAbsent(clientStartDate, () => {});

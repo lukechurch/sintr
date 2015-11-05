@@ -2,9 +2,11 @@ library sintr_worker_lib.completion;
 
 import 'dart:math' as math;
 
+import 'package:sintr_worker_lib/session_info.dart';
+
 /// Initialize the completion extraction process
 final completionExtractionStart = (Map sessionInfo) {
-  _sdkVersion = sessionInfo['sdkVersion'] ?? 'unknown';
+  _sdkVersion = sessionInfo[SDK_VERSION] ?? 'unknown';
 };
 
 /// Process a log entry and return a string representing the result

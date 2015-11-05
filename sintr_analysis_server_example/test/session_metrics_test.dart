@@ -4,7 +4,7 @@
 
 library sintr_worker_lib.session_info_test;
 
-import 'package:sintr_worker_lib/session_info.dart';
+import 'package:sintr_worker_lib/session_metrics.dart';
 import 'package:test/test.dart';
 
 main() {

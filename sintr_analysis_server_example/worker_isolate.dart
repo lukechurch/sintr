@@ -11,7 +11,7 @@ import 'package:sintr_common/auth.dart' as auth;
 import 'package:sintr_common/auth.dart';
 import 'package:sintr_common/configuration.dart' as config;
 import 'package:sintr_common/logging_utils.dart' as log;
-import 'package:sintr_worker_lib/instrumentation_lib.dart';
+import 'package:sintr_worker_lib/instrumentation_processor.dart';
 
 import 'package:sintr_worker_lib/completion_metrics.dart'
     show

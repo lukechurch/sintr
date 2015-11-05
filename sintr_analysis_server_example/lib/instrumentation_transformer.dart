@@ -9,6 +9,12 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart' as crypto;
 
+/// Return a string that is at most 300 char long.
+String trim300(String exMsg) {
+  if (exMsg.length <= 300) return exMsg;
+  return '${exMsg.substring(0, 296)} ...';
+}
+
 /// Decode compressed chunks of instrumentation data
 /// into instrumentation messages.
 ///
@@ -90,7 +96,7 @@ class _LogItemSink extends StringConversionSinkBase {
           logEntry.write(line);
         } else {
           // This is probably a missing message/broken file
-          throw 'Expected "~" as first char, but found $line';
+          throw 'Expected "~" as first char, but found ${trim300(line)}';
         }
       }
     }

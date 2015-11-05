@@ -35,9 +35,8 @@ main(List<String> args) async {
       .transform(new LineSplitter())
       .transform(new LogItemTransformer())
       .handleError((e, s) {
-    var exMsg = e.toString();
-    if (exMsg.length > 300) exMsg = '${exMsg.substring(0, 300)} ...';
-    print("Error reading line \n${exMsg} \n$s");
+    ++readFailureCount;
+    print("Error reading line\n${trim300(e.toString())}\n$s");
   })) {
     ++msgCount;
     try {

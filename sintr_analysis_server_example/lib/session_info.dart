@@ -9,13 +9,13 @@ import 'dart:convert';
 
 import 'package:sintr_worker_lib/instrumentation_transformer.dart';
 
-final SESSION_ID = 'sessionId';
-final CLIENT_START_TIME = 'clientStartTime';
-final UUID = 'uuid';
-final CLIENT_ID = 'clientId';
-final CLIENT_VERSION = 'clientVersion';
-final SERVER_VERSION = 'serverVersion';
-final SDK_VERSION = 'sdkVersion';
+const SESSION_ID = 'sessionId';
+const CLIENT_START_TIME = 'clientStartTime';
+const UUID = 'uuid';
+const CLIENT_ID = 'clientId';
+const CLIENT_VERSION = 'clientVersion';
+const SERVER_VERSION = 'serverVersion';
+const SDK_VERSION = 'sdkVersion';
 
 Future<Map> readSessionInfo(String sessionId, Stream<List<int>> stream) async {
   String firstLine = await stream

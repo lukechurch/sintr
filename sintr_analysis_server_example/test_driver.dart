@@ -25,6 +25,10 @@ main(List<String> args) async {
   var extracted = <String>[];
 
   // Process each line to extract information
+  var readFailureCount = 0;
+  var msgCount = 0;
+  var resultCount = 0;
+  var failureCount = 0;
   await for (String logEntry in f
       .openRead()
       .transform(UTF8.decoder)
@@ -35,16 +39,24 @@ main(List<String> args) async {
     if (exMsg.length > 300) exMsg = '${exMsg.substring(0, 300)} ...';
     print("Error reading line \n${exMsg} \n$s");
   })) {
+    ++msgCount;
     try {
       var result = completionExtraction(logEntry);
       if (result != null) {
         print(result);
         if (extracted != null) extracted.add(result);
+        ++resultCount;
       }
     } catch (e, s) {
+      ++failureCount;
       print('$e\n$s');
     }
   }
+  print('Extraction summary:');
+  print('  $readFailureCount read failures');
+  print('  $msgCount messages processed');
+  print('  $resultCount extraction results');
+  print('  $failureCount extraction exceptions');
 
   // Finish the extraction process
   var finalResults = completionExtractionFinished();

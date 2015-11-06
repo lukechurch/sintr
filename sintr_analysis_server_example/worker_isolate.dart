@@ -11,14 +11,9 @@ import 'package:sintr_common/auth.dart' as auth;
 import 'package:sintr_common/auth.dart';
 import 'package:sintr_common/configuration.dart' as config;
 import 'package:sintr_common/logging_utils.dart' as log;
-import 'package:sintr_worker_lib/instrumentation_processor.dart';
+import 'package:sintr_worker_lib/instrumentation_transformer.dart';
 
-import 'package:sintr_worker_lib/completion_metrics.dart'
-    show
-        completionExtraction,
-        completionExtractionFinished,
-        completionReducer,
-        completionReductionMerge;
+import 'package:sintr_worker_lib/query/versions.dart';
 
 const projectName = "liftoff-dev";
 var client;
@@ -37,61 +32,36 @@ Future<String> _protectedHandle(String msg) async {
     var inputData = JSON.decode(msg);
     String bucketName = inputData[0];
     String objectPath = inputData[1];
-    var logItems = [];
+    var results = [];
     var errItems = [];
     int failureCount = 0;
     int lines = 0;
 
-    LogItemProcessor proc = new LogItemProcessor(completionExtraction);
+    // Initialize query specific objects
+    var mapper = new VersionMapper();
 
     Stream dataStream = await getDataFromCloud(bucketName, objectPath);
-    await for (String s in dataStream) {
-      lines++;
-      try {
-        proc.addRawLine(s);
 
-        String nextMessage;
-        while (proc.hasMoreMessages) {
-          nextMessage = proc.readNextMessage();
-          if (nextMessage != null) logItems.add(nextMessage);
-        }
-      } catch (e, st) {
-        log.info("Message proc erred. $e \n $st \n");
-        var rawErringLine = s.toString();
-        if (rawErringLine.length > 300) rawErringLine = '${rawErringLine.substring(0, 300)} ...';
-        errItems
-            .add({"lastBlock": false, "rawDataLine": rawErringLine, "exception": "$e", "stackTrace": "$st"});
-        failureCount++;
-      }
-    }
-
-    if (client != null) client.close();
-
-    try {
-      proc.close();
-
-      String nextMessage;
-      while (proc.hasMoreMessages) {
-        nextMessage = proc.readNextMessage();
-        if (nextMessage != null) logItems.add(nextMessage);
-      }
-    } catch (e, st) {
-      log.info("Message proc erred. $e \n $st \n");
-      errItems
-          .add({"lastBlock": true, "exception": "$e", "stackTrace": "$st"});
+    // Extraction
+    await mapper.init({});
+    await for (String logEntry in dataStream
+        .transform(UTF8.decoder)
+        .transform(new LineSplitter())
+        .transform(new LogItemTransformer())
+        .handleError((e, s) {
       failureCount++;
+      errItems.add("Error reading line\n${trim300(e.toString())}\n$s");
+    })) {
+      lines++;
+      var result = mapper.map(logEntry);
+      if (result != null) {
+        results.add(result);
+      }
     }
-
-    // Finish the extraction process
-    var finalResults = completionExtractionFinished();
-    if (finalResults is String) {
-      logItems.add(finalResults);
-    } else if (finalResults is List<String>) {
-      logItems.addAll(finalResults);
-    }
+    results.addAll(mapper.cleanup());
 
     return JSON.encode({
-      "result": logItems,
+      "result": results,
       "failureCount": failureCount,
       "errItems": errItems,
       "linesProcessed": lines,

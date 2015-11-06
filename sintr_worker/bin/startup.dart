@@ -124,10 +124,9 @@ _handleTask(tasks.Task task) async {
     log.perf("Response recieved", elasped);
 
     var resultsLocation = await task.resultLocation;
-    String objectPathForResult = task.uniqueName;
 
     await gae_utils.CloudStorage.writeFileBytes(
-      resultsLocation.bucketName, objectPathForResult,
+      resultsLocation.bucketName, resultsLocation.objectPath,
       UTF8.encode(response));
 
     // await gae_utils.CloudStorage.writeFileContents(
@@ -141,7 +140,6 @@ _handleTask(tasks.Task task) async {
 
     // TODO: Move this into the task API rather than needing to edit
     // the backing object
-    task.backingstore.resultCloudStorageObjectPath = objectPathForResult;
     await task.recordProgress();
 
     elasped = sw.elapsedMilliseconds;

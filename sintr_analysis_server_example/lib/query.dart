@@ -21,9 +21,9 @@ abstract class Mapper {
 
   /// Process the given message and return a result, which may be `null`.
   /// Subtypes must implement this method.
-  String map(String message);
+  dynamic map(String message);
 
   /// Perform cleanup and return any remaining results.
   /// Subtypes may override this method.
-  List<String> cleanup() => [];
+  List cleanup() => [];
 }

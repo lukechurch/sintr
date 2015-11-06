@@ -25,5 +25,5 @@ abstract class Mapper {
 
   /// Perform cleanup and return any remaining results.
   /// Subtypes may override this method.
-  List<String> cleanup() => [];
+  List cleanup() => [];
 }

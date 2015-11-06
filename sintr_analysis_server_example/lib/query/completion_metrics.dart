@@ -16,11 +16,7 @@ const VERSION = 'version';
 
 /// Process log line that was encoded by [_composeExtractionResult]
 /// and return a map of current results
-final completionReducer = (String extractionResult, Map results) {
-  // Extract completion information
-  var split = extractionResult.split(',');
-  var sdkVersion = split[0];
-  var completionTime = int.parse(split[1]);
+final completionReducer = (String sdkVersion, int completionTime, Map results) {
 
   // Extract current results for SDK
   // version, min, ave, max, count, total, incomplete
@@ -88,7 +84,6 @@ final QUOTE = '"'.codeUnitAt(0);
 /// [CompletionMapper] processes session log messages and extracts
 /// metrics for each call to code completion
 class CompletionMapper extends Mapper {
-
   /// A mapping of completion notification ID to information abou the completion.
   /// Elements are added when a completion response is found
   /// and removed when the final notification is found.
@@ -104,31 +99,30 @@ class CompletionMapper extends Mapper {
 
   /// Reporting any partial completion information
   @override
-  List<String> cleanup() {
-    List<String> results = [];
+  void cleanup() {
     for (_Completion completion in _requestMap.values) {
       // TODO (danrubel) provide better message for incomplete requests
-      results.add(_composeExtractionResult(completion, -1));
+      addResult(_sdkVersion, -1);
     }
     _requestMap.clear();
     for (_Completion completion in _notificationMap.values) {
       // TODO (danrubel) provide better message for missing notifications
-      results.add(_composeExtractionResult(completion, -2));
+      addResult(_sdkVersion, -2);
     }
     _notificationMap.clear();
-    return results;
   }
 
   /// Initialize the completion extraction process
   @override
-  Future init(Map<String, dynamic> sessionInfo) async {
+  Future init(Map<String, dynamic> sessionInfo, AddResult addResult) async {
+    super.init(sessionInfo, addResult);
     _sdkVersion = sessionInfo[SDK_VERSION] ?? 'unknown';
   }
 
   /// Process a log entry and return a string representing the result
   /// or `null` if no result from the given log entry.
   @override
-  String map(String logEntryText) {
+  void map(String logEntryText) {
     if (logEntryText == null || logEntryText == "") return null;
     if (!logEntryText.startsWith("~")) return null;
 
@@ -140,12 +134,9 @@ class CompletionMapper extends Mapper {
     if (index2 == -1) return null;
     String msgType = logEntryText.substring(index1 + 1, index2);
 
-    return _processLogMessage(
-        time, msgType, logEntryText.substring(index2 + 1));
+    String message = logEntryText.substring(index2 + 1);
+    _processLogMessage(time, msgType, message);
   }
-
-  String _composeExtractionResult(_Completion completion, int completionTime) =>
-      '$_sdkVersion,$completionTime';
 
   /// Search the given [logMessageText] for the given [key]
   /// and return the associated value.
@@ -174,33 +165,32 @@ class CompletionMapper extends Mapper {
 
   /// Process a log message and return a string representing the result
   /// or `null` if no result from the given log entry.
-  String _processLogMessage(int time, String msgType, String logMessageText) {
+  void _processLogMessage(int time, String msgType, String logMessageText) {
     if (msgType == 'Req') {
       String method = _extractJsonValue(logMessageText, 'method');
-      return _processRequest(time, method, logMessageText);
+      _processRequest(time, method, logMessageText);
     } else if (msgType == 'Res') {
       String requestId = _extractJsonValue(logMessageText, 'id');
-      return _processResponse(time, requestId, logMessageText);
+      _processResponse(time, requestId, logMessageText);
     } else if (msgType == 'Noti') {
       String event = _extractJsonValue(logMessageText, 'event');
-      return _processNotification(time, event, logMessageText);
+      _processNotification(time, event, logMessageText);
     } else if (msgType == 'Read') {
-      return null;
+      // process read entry
     } else if (msgType == 'Task') {
-      return null;
+      // process task entry
     } else if (msgType == 'Log') {
-      return null;
+      // process log entry
     } else if (msgType == 'Perf') {
-      return null;
+      // process perf entry
     } else if (msgType == 'Watch') {
-      return null;
+      // process watch entry
     }
     //throw 'unknown msgType $msgType in $logMessageText';
-    return null;
   }
 
   /// Process a log entry representing a notification
-  String _processNotification(int time, String event, String logMessageText) {
+  void _processNotification(int time, String event, String logMessageText) {
     if (event == 'completion.results') {
       if (!logMessageText.endsWith(',"isLast"::true}}')) return null;
       var prefix = '{"event"::"completion.results","params"::{"id"::"';
@@ -215,24 +205,22 @@ class CompletionMapper extends Mapper {
       if (completion == null) {
         throw 'expected completion request for $logMessageText';
       }
-      return _composeExtractionResult(
-          completion, time - completion.requestTime);
+      addResult(_sdkVersion, time - completion.requestTime);
     }
     return null;
   }
 
   /// Process a log entry representing a request
-  String _processRequest(int time, String method, String logMessageText) {
+  void _processRequest(int time, String method, String logMessageText) {
     // Look for completion requests
     if (method == 'completion.getSuggestions') {
       String requestId = _extractJsonValue(logMessageText, 'id');
       _requestMap[requestId] = new _Completion(time);
     }
-    return null;
   }
 
   /// Process a log entry representing a response
-  String _processResponse(int time, String requestId, String logMessageText) {
+  void _processResponse(int time, String requestId, String logMessageText) {
     _Completion completion = _requestMap.remove(requestId);
     if (completion != null) {
       String result = _extractJsonValue(logMessageText, 'result');
@@ -240,7 +228,6 @@ class CompletionMapper extends Mapper {
       _notificationMap[notificationId] = completion;
       completion.responseTime = time;
     }
-    return null;
   }
 }
 

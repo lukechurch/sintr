@@ -14,16 +14,29 @@ import 'dart:async';
 /// * [#cleanup] is called once after processing is complete
 ///
 abstract class Mapper {
+  // A function used by the mapper to provide results to its client.
+  AddResult addResult;
+
   /// Perform mapper initialization.
   /// Return a [Future] indicating when initialization is complete.
   /// Subtypes may override this method.
-  Future init(Map<String, dynamic> sessionInfo) async => null;
+  Future init(Map<String, dynamic> sessionInfo, AddResult addResult) async {
+    this.addResult = addResult;
+    return null;
+  }
 
-  /// Process the given message and return a result, which may be `null`.
+  /// Process the given message and call [addResult] zero or more times
+  /// to provide results from processing the given message.
   /// Subtypes must implement this method.
-  dynamic map(String message);
+  void map(String message);
 
-  /// Perform cleanup and return any remaining results.
+  /// Perform cleanup and call [addResult] zero or more times
+  /// to provide additional results.
   /// Subtypes may override this method.
-  List cleanup() => [];
+  void cleanup() {}
 }
+
+/// A function passed to the mapper so that the mapper can provide results
+/// to its client. The [value] must be an object that can be encoded via
+/// `JSON.encode(value)`.
+typedef void AddResult(String key, dynamic value);

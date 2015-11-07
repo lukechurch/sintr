@@ -1,34 +1,40 @@
+// Copyright (c) 2015, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 library sintr_worker_lib.completion;
 
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:sintr_worker_lib/query.dart';
 import 'package:sintr_worker_lib/session_info.dart';
 
 const AVE = 'ave';
-const COUNT = 'count';
 const INCOMPLETE = 'incomplete';
 const MAX = 'max';
 const MIN = 'min';
 const TOTAL = 'total';
+const V90TH = '90th';
+const V99TH = '99th';
+const VALUES = 'values';
 const VERSION = 'version';
 
 /// Process log line that was encoded by [_composeExtractionResult]
 /// and return a map of current results
 final completionReducer = (String sdkVersion, int completionTime, Map results) {
-
   // Extract current results for SDK
   // version, min, ave, max, count, total, incomplete
   var sdkResults = results[sdkVersion];
   if (sdkResults == null) {
     sdkResults = {
       VERSION: sdkVersion,
-      COUNT: 0,
+      VALUES: [],
       TOTAL: 0,
-      MIN: 0,
-      AVE: 0,
-      MAX: 0,
+      //MIN: 0,
+      //AVE: 0,
+      //V90TH: 0,
+      //V99TH: 0,
+      //MAX: 0,
       INCOMPLETE: 0
     };
     results[sdkVersion] = sdkResults;
@@ -36,11 +42,11 @@ final completionReducer = (String sdkVersion, int completionTime, Map results) {
 
   // Update results with new information
   if (completionTime > 0) {
-    ++sdkResults[COUNT];
+    _orderedInsert(sdkResults[VALUES], completionTime);
     sdkResults[TOTAL] += completionTime;
-    sdkResults[MIN] = math.min(sdkResults[MIN], completionTime);
-    sdkResults[AVE] = sdkResults[TOTAL] / sdkResults[COUNT];
-    sdkResults[MAX] = math.max(sdkResults[MAX], completionTime);
+    sdkResults[MIN] = _min(sdkResults[MIN], completionTime);
+    sdkResults[MAX] = _max(sdkResults[MAX], completionTime);
+    _updateCalculations(sdkResults);
   } else {
     ++sdkResults[INCOMPLETE];
   }
@@ -55,17 +61,20 @@ final completionReductionMerge = (Map results1, Map results2) {
     if (sdkResults2 == null) {
       newResults[key] = sdkResults1;
     } else {
-      var count = sdkResults1[COUNT] + sdkResults2[COUNT];
       var total = sdkResults1[TOTAL] + sdkResults2[TOTAL];
+      var values = []..addAll(sdkResults1[VALUES]);
+      for (int completionTime in sdkResults2[VALUES]) {
+        _orderedInsert(values, completionTime);
+      }
       var sdkResults = {
         VERSION: key,
-        COUNT: count,
+        VALUES: values,
         TOTAL: total,
-        MIN: math.min(sdkResults1[MIN], sdkResults2[MIN]),
-        AVE: total / count,
-        MAX: math.max(sdkResults1[MAX], sdkResults2[MAX]),
+        MIN: _min(sdkResults1[MIN], sdkResults2[MIN]),
+        MAX: _max(sdkResults1[MAX], sdkResults2[MAX]),
         INCOMPLETE: sdkResults1[INCOMPLETE] + sdkResults2[INCOMPLETE]
       };
+      _updateCalculations(sdkResults);
       newResults[key] = sdkResults;
     }
   });
@@ -80,6 +89,52 @@ final completionReductionMerge = (Map results1, Map results2) {
 
 final OPEN_BRACE = '{'.codeUnitAt(0);
 final QUOTE = '"'.codeUnitAt(0);
+
+int _max(int value1, int value2) {
+  if (value1 == null) return value2;
+  if (value2 == null) return value1;
+  return value1 > value2 ? value1 : value2;
+}
+
+int _min(int value1, int value2) {
+  if (value1 == null) return value2;
+  if (value2 == null) return value1;
+  return value1 < value2 ? value1 : value2;
+}
+
+/// Insert [newValue] into the sorted list of [values]
+/// such that the list is still sorted.
+void _orderedInsert(List<int> values, int newValue) {
+  if (values.length == 0) {
+    values.add(newValue);
+    return;
+  }
+  if (newValue < values[0]) {
+    values.insert(0, newValue);
+    return;
+  }
+  int start = 0;
+  int end = values.length;
+  int pivot = start + (end - start) ~/ 2;
+  while (end - start > 1 || values[pivot] == newValue) {
+    if (values[pivot] == newValue) break;
+    if (values[pivot] < newValue) {
+      start = pivot;
+    } else {
+      end = pivot;
+    }
+    pivot = start + (end - start) ~/ 2;
+  }
+  values.insert(pivot + 1, newValue);
+}
+
+/// Update the calculated values in the SDK results map
+void _updateCalculations(sdkResults) {
+  List<int> values = sdkResults[VALUES];
+  sdkResults[AVE] = sdkResults[TOTAL] / values.length;
+  sdkResults[V90TH] = values[(values.length * (9 / 10)).floor()];
+  sdkResults[V99TH] = values[(values.length * (99 / 100)).floor()];
+}
 
 /// [CompletionMapper] processes session log messages and extracts
 /// metrics for each call to code completion

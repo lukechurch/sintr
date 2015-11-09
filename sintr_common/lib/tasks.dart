@@ -185,7 +185,8 @@ class _TaskModel extends db.Model {
       this.parentJobName,
       CloudStorageLocation inputLocation,
       CloudStorageLocation sourceLocation,
-      String this.resultCloudStorageBucketName) {
+      String this.resultCloudStorageBucketName,
+      String this.resultCloudStorageObjectPath) {
     lifecycleState = _intFromLifecycle(LifecycleState.READY);
     lastUpdateEpochMs = new DateTime.now().millisecondsSinceEpoch;
     failureCount = 0;
@@ -235,8 +236,8 @@ class TaskController {
     final int READY_STATE = _intFromLifecycle(LifecycleState.READY);
     final int ALLOCATED_STATE = _intFromLifecycle(LifecycleState.ALLOCATED);
 
+    // TODO: Add co-ordination of the job to outside the control scripts
     var query = _db.query(_TaskModel)
-      ..filter("parentJobName =", jobName)
       ..filter("lifecycleState =", READY_STATE);
 
     await for (_TaskModel model in query.run()) {
@@ -269,10 +270,9 @@ class TaskController {
       List<CloudStorageLocation> inputLocations,
       CloudStorageLocation sourceLocation,
       String resultCloudStorageBucketName) async {
+    log.info("Creating ${inputLocations.length} tasks");
 
-        log.info("Creating ${inputLocations.length} tasks");
-
-        int count = 0;
+    int count = 0;
 
     // TODO this needs resiliance adding to it to protect against
     // datastore errors
@@ -280,7 +280,11 @@ class TaskController {
     var inserts = <_TaskModel>[];
     for (CloudStorageLocation inputLocation in inputLocations) {
       _TaskModel task = new _TaskModel.fromData(
-          jobName, inputLocation, sourceLocation, resultCloudStorageBucketName);
+          jobName,
+          inputLocation,
+          sourceLocation,
+          resultCloudStorageBucketName,
+          outputPathFromInput(inputLocation));
       inserts.add(task);
 
       if (inserts.length >= DATASTORE_TRANSACTION_SIZE) {
@@ -322,7 +326,6 @@ class TaskController {
     if (deleteKeys.length > 0) {
       await _db.commit(deletes: deleteKeys);
       i += deleteKeys.length;
-
     }
     log.info("$i tasks deleted");
   }
@@ -339,7 +342,7 @@ class TaskController {
       String parentJobName = model.parentJobName;
       int state = model.lifecycleState;
 
-      stateCounts.putIfAbsent(parentJobName, () => { });
+      stateCounts.putIfAbsent(parentJobName, () => {});
       stateCounts[parentJobName].putIfAbsent(state, () => 0);
       stateCounts[parentJobName][state]++;
 
@@ -350,4 +353,7 @@ class TaskController {
     return stateCounts;
   }
 
+  /// Mapping of an [inputLocation] for a task to an output location
+  String outputPathFromInput(CloudStorageLocation inputLocation) =>
+      "$jobName/out/${inputLocation.objectPath}";
 }

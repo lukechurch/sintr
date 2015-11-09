@@ -20,7 +20,7 @@ main(List<String> args) async {
   }
   String path = args[0];
   var file = new io.File(path);
-  var extracted = <String>[];
+  var extracted = [];
 
   // Initialize query specific objects
   TestMapper mapper = new TestMapper(new CompletionMapper(), path);
@@ -28,7 +28,9 @@ main(List<String> args) async {
   var reductionMerge = completionReductionMerge;
 
   // Extraction
-  await mapper.init({});
+  await mapper.init({}, (String key, value) {
+    extracted.add([key, value]);
+  });
   await for (String logEntry in file
       .openRead()
       .transform(UTF8.decoder)
@@ -38,24 +40,21 @@ main(List<String> args) async {
     ++mapper.readFailureCount;
     print("Error reading line\n${trim300(e.toString())}\n$s");
   })) {
-    var result = mapper.map(logEntry);
-    if (result != null) {
-      extracted.add(result);
-    }
+    mapper.map(logEntry);
   }
-  extracted.addAll(mapper.cleanup());
+  mapper.cleanup();
 
   // Reduce the information into two separate result maps
   var reduced1 = <String, dynamic>{};
   var reduced2 = <String, dynamic>{};
   int index = 0;
   while (index < extracted.length / 2) {
-    reduced1 = reducer(extracted[index], reduced1);
+    reduced1 = reducer(extracted[index][0], extracted[index][1], reduced1);
     ++index;
   }
   print(reduced1);
   while (index < extracted.length) {
-    reduced2 = reducer(extracted[index], reduced2);
+    reduced2 = reducer(extracted[index][0], extracted[index][1], reduced2);
     ++index;
   }
   print(reduced2);
@@ -67,7 +66,8 @@ main(List<String> args) async {
 
 /// [TestMapper] wraps another mapper with exception handling
 /// and performance monitoring for testing purposes.
-class TestMapper extends Mapper {
+class TestMapper implements Mapper {
+  AddResult addResult;
   final Mapper mapper;
   final String sessionFilePath;
   int msgCount = 0;
@@ -78,21 +78,18 @@ class TestMapper extends Mapper {
   TestMapper(this.mapper, this.sessionFilePath);
 
   @override
-  List<String> cleanup() {
-    List<String> finalResults = mapper.cleanup();
-    resultCount += finalResults.length;
-    finalResults.forEach((ln) => print(ln));
+  void cleanup() {
+    mapper.cleanup();
 
     print('Extraction summary:');
     print('  $readFailureCount read failures');
     print('  $msgCount messages processed');
     print('  $resultCount extraction results');
     print('  $failureCount extraction exceptions');
-    return finalResults;
   }
 
   @override
-  Future init(Map<String, dynamic> sessionInfo) async {
+  Future init(Map<String, dynamic> sessionInfo, AddResult addResult) async {
     if (!sessionFilePath.endsWith('.json')) throw 'expected *.json';
     var index = sessionFilePath.indexOf('-', sessionFilePath.lastIndexOf('/'));
     var name = sessionFilePath.substring(index + 1, sessionFilePath.length - 5);
@@ -106,23 +103,30 @@ class TestMapper extends Mapper {
       Stream<List<int>> stream = new io.File(priPath).openRead();
       sessionInfo = await readSessionInfo(name, stream);
     }
-    return mapper.init(sessionInfo);
+    this.addResult = (String key, dynamic value) {
+      var json;
+      try {
+        json = JSON.encode(value);
+      } catch (e, s) {
+        ++failureCount;
+        print('JSON.encode(...) failed: ${trim300(value)}\n${trim300(e)}\n$s');
+        return;
+      }
+      print('$key --> $json');
+      addResult(key, value);
+      ++resultCount;
+    };
+    return mapper.init(sessionInfo, this.addResult);
   }
 
   @override
-  String map(String logEntry) {
+  void map(String logEntry) {
     ++msgCount;
     try {
-      var result = mapper.map(logEntry);
-      if (result != null) {
-        ++resultCount;
-        print(result);
-        return result;
-      }
+      mapper.map(logEntry);
     } catch (e, s) {
       ++failureCount;
       print('$e\n$s');
     }
-    return null;
   }
 }

@@ -1,38 +1,40 @@
+// Copyright (c) 2015, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 library sintr_worker_lib.completion;
 
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:sintr_worker_lib/query.dart';
 import 'package:sintr_worker_lib/session_info.dart';
 
 const AVE = 'ave';
-const COUNT = 'count';
 const INCOMPLETE = 'incomplete';
 const MAX = 'max';
 const MIN = 'min';
 const TOTAL = 'total';
+const V90TH = '90th';
+const V99TH = '99th';
+const VALUES = 'values';
 const VERSION = 'version';
 
 /// Process log line that was encoded by [_composeExtractionResult]
 /// and return a map of current results
-final completionReducer = (String extractionResult, Map results) {
-  // Extract completion information
-  var split = extractionResult.split(',');
-  var sdkVersion = split[0];
-  var completionTime = int.parse(split[1]);
-
+final completionReducer = (String sdkVersion, int completionTime, Map results) {
   // Extract current results for SDK
   // version, min, ave, max, count, total, incomplete
   var sdkResults = results[sdkVersion];
   if (sdkResults == null) {
     sdkResults = {
       VERSION: sdkVersion,
-      COUNT: 0,
+      VALUES: [],
       TOTAL: 0,
-      MIN: 0,
-      AVE: 0,
-      MAX: 0,
+      //MIN: 0,
+      //AVE: 0,
+      //V90TH: 0,
+      //V99TH: 0,
+      //MAX: 0,
       INCOMPLETE: 0
     };
     results[sdkVersion] = sdkResults;
@@ -40,11 +42,11 @@ final completionReducer = (String extractionResult, Map results) {
 
   // Update results with new information
   if (completionTime > 0) {
-    ++sdkResults[COUNT];
+    _orderedInsert(sdkResults[VALUES], completionTime);
     sdkResults[TOTAL] += completionTime;
-    sdkResults[MIN] = math.min(sdkResults[MIN], completionTime);
-    sdkResults[AVE] = sdkResults[TOTAL] / sdkResults[COUNT];
-    sdkResults[MAX] = math.max(sdkResults[MAX], completionTime);
+    sdkResults[MIN] = _min(sdkResults[MIN], completionTime);
+    sdkResults[MAX] = _max(sdkResults[MAX], completionTime);
+    _updateCalculations(sdkResults);
   } else {
     ++sdkResults[INCOMPLETE];
   }
@@ -59,17 +61,20 @@ final completionReductionMerge = (Map results1, Map results2) {
     if (sdkResults2 == null) {
       newResults[key] = sdkResults1;
     } else {
-      var count = sdkResults1[COUNT] + sdkResults2[COUNT];
       var total = sdkResults1[TOTAL] + sdkResults2[TOTAL];
+      var values = []..addAll(sdkResults1[VALUES]);
+      for (int completionTime in sdkResults2[VALUES]) {
+        _orderedInsert(values, completionTime);
+      }
       var sdkResults = {
         VERSION: key,
-        COUNT: count,
+        VALUES: values,
         TOTAL: total,
-        MIN: math.min(sdkResults1[MIN], sdkResults2[MIN]),
-        AVE: total / count,
-        MAX: math.max(sdkResults1[MAX], sdkResults2[MAX]),
+        MIN: _min(sdkResults1[MIN], sdkResults2[MIN]),
+        MAX: _max(sdkResults1[MAX], sdkResults2[MAX]),
         INCOMPLETE: sdkResults1[INCOMPLETE] + sdkResults2[INCOMPLETE]
       };
+      _updateCalculations(sdkResults);
       newResults[key] = sdkResults;
     }
   });
@@ -85,10 +90,55 @@ final completionReductionMerge = (Map results1, Map results2) {
 final OPEN_BRACE = '{'.codeUnitAt(0);
 final QUOTE = '"'.codeUnitAt(0);
 
+int _max(int value1, int value2) {
+  if (value1 == null) return value2;
+  if (value2 == null) return value1;
+  return value1 > value2 ? value1 : value2;
+}
+
+int _min(int value1, int value2) {
+  if (value1 == null) return value2;
+  if (value2 == null) return value1;
+  return value1 < value2 ? value1 : value2;
+}
+
+/// Insert [newValue] into the sorted list of [values]
+/// such that the list is still sorted.
+void _orderedInsert(List<int> values, int newValue) {
+  if (values.length == 0) {
+    values.add(newValue);
+    return;
+  }
+  if (newValue < values[0]) {
+    values.insert(0, newValue);
+    return;
+  }
+  int start = 0;
+  int end = values.length;
+  int pivot = start + (end - start) ~/ 2;
+  while (end - start > 1 || values[pivot] == newValue) {
+    if (values[pivot] == newValue) break;
+    if (values[pivot] < newValue) {
+      start = pivot;
+    } else {
+      end = pivot;
+    }
+    pivot = start + (end - start) ~/ 2;
+  }
+  values.insert(pivot + 1, newValue);
+}
+
+/// Update the calculated values in the SDK results map
+void _updateCalculations(sdkResults) {
+  List<int> values = sdkResults[VALUES];
+  sdkResults[AVE] = sdkResults[TOTAL] / values.length;
+  sdkResults[V90TH] = values[(values.length * (9 / 10)).floor()];
+  sdkResults[V99TH] = values[(values.length * (99 / 100)).floor()];
+}
+
 /// [CompletionMapper] processes session log messages and extracts
 /// metrics for each call to code completion
 class CompletionMapper extends Mapper {
-
   /// A mapping of completion notification ID to information abou the completion.
   /// Elements are added when a completion response is found
   /// and removed when the final notification is found.
@@ -104,31 +154,30 @@ class CompletionMapper extends Mapper {
 
   /// Reporting any partial completion information
   @override
-  List<String> cleanup() {
-    List<String> results = [];
+  void cleanup() {
     for (_Completion completion in _requestMap.values) {
       // TODO (danrubel) provide better message for incomplete requests
-      results.add(_composeExtractionResult(completion, -1));
+      addResult(_sdkVersion, -1);
     }
     _requestMap.clear();
     for (_Completion completion in _notificationMap.values) {
       // TODO (danrubel) provide better message for missing notifications
-      results.add(_composeExtractionResult(completion, -2));
+      addResult(_sdkVersion, -2);
     }
     _notificationMap.clear();
-    return results;
   }
 
   /// Initialize the completion extraction process
   @override
-  Future init(Map<String, dynamic> sessionInfo) async {
+  Future init(Map<String, dynamic> sessionInfo, AddResult addResult) async {
+    super.init(sessionInfo, addResult);
     _sdkVersion = sessionInfo[SDK_VERSION] ?? 'unknown';
   }
 
   /// Process a log entry and return a string representing the result
   /// or `null` if no result from the given log entry.
   @override
-  String map(String logEntryText) {
+  void map(String logEntryText) {
     if (logEntryText == null || logEntryText == "") return null;
     if (!logEntryText.startsWith("~")) return null;
 
@@ -140,12 +189,9 @@ class CompletionMapper extends Mapper {
     if (index2 == -1) return null;
     String msgType = logEntryText.substring(index1 + 1, index2);
 
-    return _processLogMessage(
-        time, msgType, logEntryText.substring(index2 + 1));
+    String message = logEntryText.substring(index2 + 1);
+    _processLogMessage(time, msgType, message);
   }
-
-  String _composeExtractionResult(_Completion completion, int completionTime) =>
-      '$_sdkVersion,$completionTime';
 
   /// Search the given [logMessageText] for the given [key]
   /// and return the associated value.
@@ -174,33 +220,32 @@ class CompletionMapper extends Mapper {
 
   /// Process a log message and return a string representing the result
   /// or `null` if no result from the given log entry.
-  String _processLogMessage(int time, String msgType, String logMessageText) {
+  void _processLogMessage(int time, String msgType, String logMessageText) {
     if (msgType == 'Req') {
       String method = _extractJsonValue(logMessageText, 'method');
-      return _processRequest(time, method, logMessageText);
+      _processRequest(time, method, logMessageText);
     } else if (msgType == 'Res') {
       String requestId = _extractJsonValue(logMessageText, 'id');
-      return _processResponse(time, requestId, logMessageText);
+      _processResponse(time, requestId, logMessageText);
     } else if (msgType == 'Noti') {
       String event = _extractJsonValue(logMessageText, 'event');
-      return _processNotification(time, event, logMessageText);
+      _processNotification(time, event, logMessageText);
     } else if (msgType == 'Read') {
-      return null;
+      // process read entry
     } else if (msgType == 'Task') {
-      return null;
+      // process task entry
     } else if (msgType == 'Log') {
-      return null;
+      // process log entry
     } else if (msgType == 'Perf') {
-      return null;
+      // process perf entry
     } else if (msgType == 'Watch') {
-      return null;
+      // process watch entry
     }
     //throw 'unknown msgType $msgType in $logMessageText';
-    return null;
   }
 
   /// Process a log entry representing a notification
-  String _processNotification(int time, String event, String logMessageText) {
+  void _processNotification(int time, String event, String logMessageText) {
     if (event == 'completion.results') {
       if (!logMessageText.endsWith(',"isLast"::true}}')) return null;
       var prefix = '{"event"::"completion.results","params"::{"id"::"';
@@ -215,24 +260,22 @@ class CompletionMapper extends Mapper {
       if (completion == null) {
         throw 'expected completion request for $logMessageText';
       }
-      return _composeExtractionResult(
-          completion, time - completion.requestTime);
+      addResult(_sdkVersion, time - completion.requestTime);
     }
     return null;
   }
 
   /// Process a log entry representing a request
-  String _processRequest(int time, String method, String logMessageText) {
+  void _processRequest(int time, String method, String logMessageText) {
     // Look for completion requests
     if (method == 'completion.getSuggestions') {
       String requestId = _extractJsonValue(logMessageText, 'id');
       _requestMap[requestId] = new _Completion(time);
     }
-    return null;
   }
 
   /// Process a log entry representing a response
-  String _processResponse(int time, String requestId, String logMessageText) {
+  void _processResponse(int time, String requestId, String logMessageText) {
     _Completion completion = _requestMap.remove(requestId);
     if (completion != null) {
       String result = _extractJsonValue(logMessageText, 'result');
@@ -240,7 +283,6 @@ class CompletionMapper extends Mapper {
       _notificationMap[notificationId] = completion;
       completion.responseTime = time;
     }
-    return null;
   }
 }
 

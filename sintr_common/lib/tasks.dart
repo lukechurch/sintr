@@ -236,8 +236,8 @@ class TaskController {
     final int READY_STATE = _intFromLifecycle(LifecycleState.READY);
     final int ALLOCATED_STATE = _intFromLifecycle(LifecycleState.ALLOCATED);
 
+    // TODO: Add co-ordination of the job to outside the control scripts
     var query = _db.query(_TaskModel)
-      ..filter("parentJobName =", jobName)
       ..filter("lifecycleState =", READY_STATE);
 
     await for (_TaskModel model in query.run()) {

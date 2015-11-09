@@ -53,6 +53,7 @@ Future<String> _protectedHandle(String msg) async {
       errItems.add("Error reading line\n${trim300(e.toString())}\n$s");
     })) {
       lines++;
+      // TODO (lukechurch): Add local error capture here
       var result = mapper.map(logEntry);
       if (result != null) {
         results.add(result);
@@ -74,7 +75,7 @@ Future<String> _protectedHandle(String msg) async {
   }
 }
 
-Future<Stream<List<String>>> getDataFromCloud(
+Future<Stream<List<int>>> getDataFromCloud(
     String bucketName, String objectPath) async {
   config.configuration = new config.Configuration(projectName,
       cryptoTokensLocation:
@@ -84,7 +85,5 @@ Future<Stream<List<String>>> getDataFromCloud(
   var sourceStorage = new storage.Storage(client, projectName);
   Stream<List<int>> rawStream =
       sourceStorage.bucket(bucketName).read(objectPath);
-  Stream<List<String>> stringStream =
-      rawStream.transform(UTF8.decoder).transform(new LineSplitter());
-  return stringStream;
+  return rawStream;
 }

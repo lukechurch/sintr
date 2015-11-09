@@ -17,3 +17,13 @@ class VersionMapper extends Mapper {
     return [dateString, sessionInfo[SDK_VERSION]];
   }
 }
+
+Map versionReducer(String key, List values) {
+  var results = {};
+
+  for (var v in values) {
+    results.putIfAbsent(v, () => 0);
+    results[v]++;
+  }
+  return results;
+}

@@ -8,6 +8,7 @@ import 'dart:async';
 
 import 'package:sintr_worker_lib/query.dart';
 import 'package:sintr_worker_lib/session_info.dart';
+import 'package:sintr_worker_lib/instrumentation_query.dart';
 
 const AVE = 'ave';
 const INCOMPLETE = 'incomplete';
@@ -138,7 +139,7 @@ void _updateCalculations(sdkResults) {
 
 /// [CompletionMapper] processes session log messages and extracts
 /// metrics for each call to code completion
-class CompletionMapper extends Mapper {
+class CompletionMapper extends InstrumentationMapper {
   /// A mapping of completion notification ID to information abou the completion.
   /// Elements are added when a completion response is found
   /// and removed when the final notification is found.
@@ -174,25 +175,6 @@ class CompletionMapper extends Mapper {
     _sdkVersion = sessionInfo[SDK_VERSION] ?? 'unknown';
   }
 
-  /// Process a log entry and return a string representing the result
-  /// or `null` if no result from the given log entry.
-  @override
-  void map(String logEntryText) {
-    if (logEntryText == null || logEntryText == "") return null;
-    if (!logEntryText.startsWith("~")) return null;
-
-    int index1 = logEntryText.indexOf(':', 1);
-    if (index1 == -1) return null;
-    int time = int.parse(logEntryText.substring(1, index1));
-
-    int index2 = logEntryText.indexOf(':', index1 + 1);
-    if (index2 == -1) return null;
-    String msgType = logEntryText.substring(index1 + 1, index2);
-
-    String message = logEntryText.substring(index2 + 1);
-    _processLogMessage(time, msgType, message);
-  }
-
   /// Search the given [logMessageText] for the given [key]
   /// and return the associated value.
   String _extractJsonValue(String logMessageText, String key) {
@@ -220,7 +202,7 @@ class CompletionMapper extends Mapper {
 
   /// Process a log message and return a string representing the result
   /// or `null` if no result from the given log entry.
-  void _processLogMessage(int time, String msgType, String logMessageText) {
+  void mapMessage(int time, String msgType, String logMessageText) {
     if (msgType == 'Req') {
       String method = _extractJsonValue(logMessageText, 'method');
       _processRequest(time, method, logMessageText);

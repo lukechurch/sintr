@@ -13,28 +13,56 @@ import "package:sintr_common/configuration.dart" as config;
 import 'package:sintr_common/logging_utils.dart' as log;
 import 'package:sintr_common/tasks.dart' as tasks;
 import "package:sintr_common/gae_utils.dart" as gae_utils;
+import 'package:gcloud/storage.dart' as storage;
 
 // TODO: Migrate the parameters of this file to the configuation common lib
 
-Future createTasks(String sourceBucket, List<String> objectNames,
-{resultsBucket: "liftoff-dev-results", codeBucket: "liftoff-dev-source"}) async {
+/// Create tasks from items in an input bucket, in [incremental] mode this
+/// will only create tasks if there was no output already present.
+Future createTasks(String JobName, String inputBucketName,
+    List<String> objectNames, resultsBucketName, sourceBucketName,
+    {incremental: false}) async {
   String projectId = config.configuration.projectName;
 
   var client = await getAuthedClient();
   var datastore = new datastore_impl.DatastoreImpl(client, 's~$projectId');
   var datastoreDB = new db.DatastoreDB(datastore);
+  var cloudstore = new storage.Storage(client, projectId);
 
   log.info("Setup done");
 
   ss.fork(() async {
     db.registerDbService(datastoreDB);
 
-    tasks.TaskController taskController =
-        new tasks.TaskController("example_task");
+    Set<String> existingObjectPaths = new Set<String>();
+    existingObjectPaths.addAll(await cloudstore
+        .bucket(resultsBucketName)
+        .list()
+        .map((entity) => entity.name)
+        .toList());
+
+    log.info("Existing results listed");
+
+    tasks.TaskController taskController = new tasks.TaskController(JobName);
 
     var taskList = [];
     for (String objectName in objectNames) {
-      taskList.add(new gae_utils.CloudStorageLocation(sourceBucket, objectName));
+      var inputLocation =
+          new gae_utils.CloudStorageLocation(inputBucketName, objectName);
+
+      if (incremental) {
+        // Test if the output location file exists
+        // TODO(lukechurch): This is currently only checking existence
+        // it should check a watermark against the last modified date
+        // of the input
+        var outputObjectPath =
+            taskController.outputPathFromInput(inputLocation);
+        if (existingObjectPaths.contains(outputObjectPath)) {
+          continue;
+        }
+      }
+
+      taskList.add(inputLocation);
     }
 
     bool ok = false;
@@ -46,13 +74,12 @@ Future createTasks(String sourceBucket, List<String> objectNames,
             taskList,
             // Source locations
             new gae_utils.CloudStorageLocation(
-                codeBucket, "test_worker.json"),
+                sourceBucketName, "test_worker.json"),
 
             // results
-            resultsBucket);
-            ok = true;
-            break;
-
+            resultsBucketName);
+        ok = true;
+        break;
       } catch (e, st) {
         print("Error: $e $st");
         print("retry");

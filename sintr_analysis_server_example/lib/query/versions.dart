@@ -11,6 +11,7 @@ class VersionMapper extends Mapper {
   @override
   map(String ln) {
     Map sessionInfo = parseSessionInfo(null, ln);
+    if (sessionInfo == null) return null;
     var clientDate = new DateTime.fromMillisecondsSinceEpoch(
         int.parse(sessionInfo[CLIENT_START_TIME]));
     var dateString = "${clientDate.year}-${clientDate.month}-${clientDate.day}";

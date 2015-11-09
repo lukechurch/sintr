@@ -28,6 +28,8 @@ Future<Map> readSessionInfo(String sessionId, Stream<List<int>> stream) async {
 
 Map parseSessionInfo(String sessionId, String firstLine) {
   var data = firstLine.split(':');
+  // Sanity check
+  if (data[1] != 'Ver') return null;
   return {
     SESSION_ID: sessionId,
     CLIENT_START_TIME: data[0].substring(1),

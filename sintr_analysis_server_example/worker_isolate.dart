@@ -12,8 +12,8 @@ import 'package:sintr_common/auth.dart';
 import 'package:sintr_common/configuration.dart' as config;
 import 'package:sintr_common/logging_utils.dart' as log;
 import 'package:sintr_worker_lib/instrumentation_transformer.dart';
-
-import 'package:sintr_worker_lib/query/versions.dart';
+import 'package:sintr_worker_lib/query/completion_metrics.dart';
+import 'package:sintr_worker_lib/session_info.dart';
 
 const projectName = "liftoff-dev";
 var client;
@@ -38,12 +38,38 @@ Future<String> _protectedHandle(String msg) async {
     int lines = 0;
 
     // Initialize query specific objects
-    var mapper = new VersionMapper();
+    var mapper = new CompletionMapper();
+
+    // Completion query specific logic =============
+
+    // Skip PRI files
+    if (objectPath.contains("PRI")) {
+      return JSON.encode({
+        "result": [],
+        "failureCount": 0,
+        "errItems": [],
+        "linesProcessed": 0,
+        "input": "gs://$bucketName/$objectPath"
+      });
+    }
+
+    // Get the session info
+    var pathComponents = objectPath.split("/");
+    var sessionId = pathComponents.removeLast();
+    pathComponents.add("PRI${sessionId}");
+    String guessedPRIPath = pathComponents.join("/");
+
+    Stream priDataStream = await getDataFromCloud(bucketName, guessedPRIPath);
+    var sessionInfo = await readSessionInfo(sessionId, priDataStream);
+
+    // ===================
 
     Stream dataStream = await getDataFromCloud(bucketName, objectPath);
 
     // Extraction
-    await mapper.init({});
+    await mapper.init(sessionInfo, (String key, value) {
+      results.add([key, value]);
+    });
     await for (String logEntry in dataStream
         .transform(UTF8.decoder)
         .transform(new LineSplitter())
@@ -54,12 +80,9 @@ Future<String> _protectedHandle(String msg) async {
     })) {
       lines++;
       // TODO (lukechurch): Add local error capture here
-      var result = mapper.map(logEntry);
-      if (result != null) {
-        results.add(result);
-      }
+      mapper.map(logEntry);
     }
-    results.addAll(mapper.cleanup());
+    mapper.cleanup();
 
     return JSON.encode({
       "result": results,

@@ -11,6 +11,7 @@ import 'package:sintr_worker_lib/instrumentation_transformer.dart';
 
 const SESSION_ID = 'sessionId';
 const CLIENT_START_TIME = 'clientStartTime';
+const CLIENT_START_DATE = "clientStartDate";
 const UUID = 'uuid';
 const CLIENT_ID = 'clientId';
 const CLIENT_VERSION = 'clientVersion';
@@ -28,13 +29,21 @@ Future<Map> readSessionInfo(String sessionId, Stream<List<int>> stream) async {
 
 Map parseSessionInfo(String sessionId, String firstLine) {
   var data = firstLine.split(':');
+
+  String clientStartTime = data[0].substring(1);
+  var clientStartDate =
+      new DateTime.fromMillisecondsSinceEpoch(int.parse(clientStartTime));
+  var clientDateString =
+      "${clientStartDate.year}-${clientStartDate.month}-${clientStartDate.day}";
+
   return {
     SESSION_ID: sessionId,
-    CLIENT_START_TIME: data[0].substring(1),
+    CLIENT_START_TIME: clientStartTime,
     UUID: data[2],
     CLIENT_ID: data[3],
     CLIENT_VERSION: data[4],
     SERVER_VERSION: data[5],
-    SDK_VERSION: data[6]
+    SDK_VERSION: data[6],
+    CLIENT_START_DATE: clientDateString
   };
 }

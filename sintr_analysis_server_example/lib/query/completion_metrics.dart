@@ -10,6 +10,7 @@ import 'package:sintr_worker_lib/query.dart';
 import 'package:sintr_worker_lib/session_info.dart';
 
 const AVE = 'ave';
+const CLUSTERS = 'clusters';
 const INCOMPLETE = 'incomplete';
 const MAX = 'max';
 const MIN = 'min';
@@ -46,7 +47,7 @@ final completionReducer = (String sdkVersion, int completionTime, Map results) {
     sdkResults[TOTAL] += completionTime;
     sdkResults[MIN] = _min(sdkResults[MIN], completionTime);
     sdkResults[MAX] = _max(sdkResults[MAX], completionTime);
-    _updateCalculations(sdkResults);
+    updateCalculations(sdkResults);
   } else {
     ++sdkResults[INCOMPLETE];
   }
@@ -74,7 +75,7 @@ final completionReductionMerge = (Map results1, Map results2) {
         MAX: _max(sdkResults1[MAX], sdkResults2[MAX]),
         INCOMPLETE: sdkResults1[INCOMPLETE] + sdkResults2[INCOMPLETE]
       };
-      _updateCalculations(sdkResults);
+      updateCalculations(sdkResults);
       newResults[key] = sdkResults;
     }
   });
@@ -89,6 +90,28 @@ final completionReductionMerge = (Map results1, Map results2) {
 
 final OPEN_BRACE = '{'.codeUnitAt(0);
 final QUOTE = '"'.codeUnitAt(0);
+
+/// Update the calculated values in the SDK results map
+void updateCalculations(sdkResults) {
+  List<int> values = sdkResults[VALUES];
+  sdkResults[AVE] = sdkResults[TOTAL] / values.length;
+  sdkResults[V90TH] = values[(values.length * (9 / 10)).floor()];
+  sdkResults[V99TH] = values[(values.length * (99 / 100)).floor()];
+  Map<int, int> clusters = {};
+  int lastIndex = 0;
+  int limit = 32;
+  for (int index = 0; index < values.length; ++index) {
+    while (limit < values[index]) {
+      var count = index - lastIndex;
+      clusters[limit] = count;
+      limit *= 2;
+      lastIndex = index;
+    }
+  }
+  var count = values.length - lastIndex;
+  clusters[limit] = count;
+  sdkResults[CLUSTERS] = clusters;
+}
 
 int _max(int value1, int value2) {
   if (value1 == null) return value2;
@@ -126,14 +149,6 @@ void _orderedInsert(List<int> values, int newValue) {
     pivot = start + (end - start) ~/ 2;
   }
   values.insert(pivot + 1, newValue);
-}
-
-/// Update the calculated values in the SDK results map
-void _updateCalculations(sdkResults) {
-  List<int> values = sdkResults[VALUES];
-  sdkResults[AVE] = sdkResults[TOTAL] / values.length;
-  sdkResults[V90TH] = values[(values.length * (9 / 10)).floor()];
-  sdkResults[V99TH] = values[(values.length * (99 / 100)).floor()];
 }
 
 /// [CompletionMapper] processes session log messages and extracts

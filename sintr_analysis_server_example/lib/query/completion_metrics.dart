@@ -39,7 +39,7 @@ final completionReducer = (String sdkVersion, int completionTime, Map results) {
 
   // Update results with new information
   if (completionTime > 0) {
-    _orderedInsert(sdkResults[VALUES], completionTime);
+    orderedInsert(sdkResults[VALUES], completionTime);
     sdkResults[TOTAL] += completionTime;
     sdkResults[MIN] = _min(sdkResults[MIN], completionTime);
     sdkResults[MAX] = _max(sdkResults[MAX], completionTime);
@@ -61,7 +61,7 @@ final completionReductionMerge = (Map results1, Map results2) {
       var total = sdkResults1[TOTAL] + sdkResults2[TOTAL];
       var values = []..addAll(sdkResults1[VALUES]);
       for (int completionTime in sdkResults2[VALUES]) {
-        _orderedInsert(values, completionTime);
+        orderedInsert(values, completionTime);
       }
       var sdkResults = {
         VERSION: key,
@@ -94,32 +94,6 @@ int _min(int value1, int value2) {
   if (value1 == null) return value2;
   if (value2 == null) return value1;
   return value1 < value2 ? value1 : value2;
-}
-
-/// Insert [newValue] into the sorted list of [values]
-/// such that the list is still sorted.
-void _orderedInsert(List<int> values, int newValue) {
-  if (values.length == 0) {
-    values.add(newValue);
-    return;
-  }
-  if (newValue < values[0]) {
-    values.insert(0, newValue);
-    return;
-  }
-  int start = 0;
-  int end = values.length;
-  int pivot = start + (end - start) ~/ 2;
-  while (end - start > 1 || values[pivot] == newValue) {
-    if (values[pivot] == newValue) break;
-    if (values[pivot] < newValue) {
-      start = pivot;
-    } else {
-      end = pivot;
-    }
-    pivot = start + (end - start) ~/ 2;
-  }
-  values.insert(pivot + 1, newValue);
 }
 
 /// Update the calculated values in the SDK results map

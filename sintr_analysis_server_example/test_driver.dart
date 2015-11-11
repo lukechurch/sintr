@@ -9,6 +9,7 @@ import 'dart:io' as io;
 import 'package:sintr_worker_lib/query/completion_metrics.dart';
 import 'package:sintr_worker_lib/instrumentation_transformer.dart';
 import 'package:sintr_worker_lib/query.dart';
+import 'package:sintr_worker_lib/query/session_ldap.dart';
 import 'package:sintr_worker_lib/session_info.dart';
 
 main(List<String> args) async {
@@ -28,8 +29,9 @@ main(List<String> args) async {
   for (io.FileSystemEntity file in files) {
     if (file is io.File) {
       print('----- extracting from $file');
+
       // Initialize query specific objects
-      TestMapper mapper = new TestMapper(new CompletionMapper(), file.path);
+      TestMapper mapper = new TestMapper(new SessionLdapMapper(), file.path);
 
       // Extraction
       await mapper.init({}, (String key, value) {
@@ -51,8 +53,8 @@ main(List<String> args) async {
   }
 
   // Initialize query specific objects
-  var reducer = completionReducer;
-  var reductionMerge = completionReductionMerge;
+  var reducer = sessionLdapReducer;
+  var reductionMerge = sessionLdapReductionMerge;
 
   // Reduce the information into two separate result maps
   var reduced1 = <String, dynamic>{};

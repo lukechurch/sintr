@@ -43,13 +43,13 @@ String extractJsonValue(String logMessageText, String key) {
 
 /// Insert [newValue] into the sorted list of [values]
 /// such that the list is still sorted.
-void orderedInsert(List<int> values, int newValue, [int comparator(v1, v2)]) {
+void orderedInsert(List values, var newValue, [int comparator(v1, v2)]) {
   if (values.length == 0) {
     values.add(newValue);
     return;
   }
   if (comparator == null) comparator = (v1, v2) => v1 - v2;
-  if (newValue < values[0]) {
+  if (comparator(newValue, values[0]) < 0) {
     values.insert(0, newValue);
     return;
   }

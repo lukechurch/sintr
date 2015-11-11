@@ -17,16 +17,22 @@ const INCOMPLETE = 'incomplete';
 const MAX = 'max';
 const MIN = 'min';
 const RESPONSE_TIMES = 'responseTimes';
-const RESPONSE_TIME_CLUSTERS = 'responseTimeClusters';
+const RESPONSE_TIME_BUCKETS = 'responseTimeBuckets';
 const RESULT_COUNTS = 'resultCounts';
-const RESULT_COUNT_CLUSTERS = 'resultCountClusters';
+const RESULT_COUNT_BUCKETS = 'resultCountBuckets';
 const TOTAL = 'total';
 const V90TH = '90th';
 const V99TH = '99th';
 const VERSION = 'version';
 
 /// Process log line that was encoded by [_composeExtractionResult]
-/// and return a map of current results
+/// and return a map of current results.
+/// [extracted] is a list containing
+///
+/// * completionTime - the number of milliseconds from request
+///     until completions are provided to the client
+/// * resultCount - the number of suggestions provided
+///
 final completionReducer = (String sdkVersion, List extracted, Map results) {
   // Extract current results for SDK
   // version, min, ave, max, count, total, incomplete, etc
@@ -111,27 +117,30 @@ void updateCalculations(sdkResults) {
   sdkResults[AVE] = sdkResults[TOTAL] / values.length;
   sdkResults[V90TH] = values[(values.length * (9 / 10)).floor()];
   sdkResults[V99TH] = values[(values.length * (99 / 100)).floor()];
-  sdkResults[RESPONSE_TIME_CLUSTERS] = _clusterValues(values, [32]);
+  sdkResults[RESPONSE_TIME_BUCKETS] = _gatherIntoBuckets(values, [32]);
   var counts = sdkResults[RESULT_COUNTS];
-  sdkResults[RESULT_COUNT_CLUSTERS] = _clusterValues(counts, [0, 1, 5, 50]);
+  sdkResults[RESULT_COUNT_BUCKETS] = _gatherIntoBuckets(counts, [0, 1, 5, 50]);
 }
 
-/// Return a clustered map generated from the given [values]
-/// where [limits] are the initial limits used for clustering.
-Map<int, int> _clusterValues(List<int> values, List<int> limits) {
+/// Return a allocation map generated from the given [sortedValues]
+/// where [limits] are the bounds used for the initial set of buckets.
+/// Any values beyond the last bound specified in [limits]
+/// are placed into buckets of size increasing by a multiple of 2
+/// times the last bucket bounds.
+Map<int, int> _gatherIntoBuckets(List<int> sortedValues, List<int> limits) {
   var limitIter = limits.iterator..moveNext();
   int limit = limitIter.current;
   Map<int, int> clusters = {};
   int lastIndex = 0;
-  for (int index = 0; index < values.length; ++index) {
-    while (limit < values[index]) {
+  for (int index = 0; index < sortedValues.length; ++index) {
+    while (limit < sortedValues[index]) {
       var count = index - lastIndex;
       clusters[limit] = count;
       limit = limitIter.moveNext() ? limitIter.current : limit * 2;
       lastIndex = index;
     }
   }
-  var count = values.length - lastIndex;
+  var count = sortedValues.length - lastIndex;
   clusters[limit] = count;
   return clusters;
 }

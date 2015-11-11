@@ -130,7 +130,7 @@ main() {
     expect(sdkResults[AVE].round(), 54);
     expect(sdkResults[V90TH], 290);
     expect(sdkResults[V99TH], 694);
-    Map<int, int> values = sdkResults[RESPONSE_TIME_CLUSTERS];
+    Map<int, int> values = sdkResults[RESPONSE_TIME_BUCKETS];
     expect(values, hasLength(6));
     expect(values[32], 241);
     expect(values[64], 21);
@@ -138,7 +138,7 @@ main() {
     expect(values[256], 0);
     expect(values[512], 27);
     expect(values[1024], 5);
-    Map<int, int> counts = sdkResults[RESULT_COUNT_CLUSTERS];
+    Map<int, int> counts = sdkResults[RESULT_COUNT_BUCKETS];
     expect(counts, hasLength(5));
     expect(counts[0], 4);
     expect(counts[1], 6);

@@ -14,7 +14,7 @@ import 'dart:async';
 /// * [#cleanup] is called once after processing is complete
 ///
 abstract class Mapper {
-  // A function used by the mapper to provide results to its client.
+  /// A function used by the mapper to provide results to its client.
   AddResult addResult;
 
   ///Flag used to signal jobs manager that mapper has finished its work

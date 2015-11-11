@@ -19,7 +19,7 @@ abstract class Mapper {
 
   ///Flag used to signal jobs manager that mapper has finished its work
   /// and [map] no longer needs to be called.
-  bool isMapComplete = false;
+  bool isMapStopped = false;
 
   /// Perform mapper initialization.
   /// Return a [Future] indicating when initialization is complete.

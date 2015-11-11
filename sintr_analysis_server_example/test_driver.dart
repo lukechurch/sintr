@@ -47,7 +47,7 @@ main(List<String> args) async {
         print("Error reading line\n${trim300(e.toString())}\n$s");
       })) {
         mapper.map(logEntry);
-        if (mapper.isMapComplete) {
+        if (mapper.isMapStopped) {
           break;
         }
       }
@@ -97,10 +97,10 @@ class TestMapper implements Mapper {
   TestMapper(this.mapper, this.sessionFilePath);
 
   @override
-  bool get isMapComplete => mapper.isMapComplete;
+  bool get isMapStopped => mapper.isMapStopped;
 
   @override
-  void set isMapComplete(bool _) => throw 'unsupported';
+  void set isMapStopped(bool _) => throw 'unsupported';
 
   @override
   void cleanup() {

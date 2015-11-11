@@ -69,7 +69,7 @@ class SessionLdapMapper extends InstrumentationMapper {
           int end = path.indexOf('/', start);
           if (end != -1) {
             addResult(sessionId, path.substring(start, end));
-            isMapComplete = true;
+            isMapStopped = true;
             return;
           }
         }
@@ -81,7 +81,7 @@ class SessionLdapMapper extends InstrumentationMapper {
         int end = path.indexOf('/', start);
         if (end != -1) {
           addResult(sessionId, path.substring(start, end));
-          isMapComplete = true;
+          isMapStopped = true;
           return;
         }
       }

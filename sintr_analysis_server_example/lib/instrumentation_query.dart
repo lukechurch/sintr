@@ -9,6 +9,8 @@ import 'dart:async';
 import 'package:sintr_worker_lib/query.dart';
 import 'package:sintr_worker_lib/session_info.dart';
 
+const _DEBUG = true;
+
 final OPEN_BRACE = '{'.codeUnitAt(0);
 final QUOTE = '"'.codeUnitAt(0);
 
@@ -41,23 +43,25 @@ String extractJsonValue(String logMessageText, String key) {
   return null;
 }
 
-/// Insert [newValue] into the sorted list of [values]
+/// Insert [newValue] into the sorted list of [sortedValues]
 /// such that the list is still sorted.
-void orderedInsert(List values, var newValue, [int comparator(v1, v2)]) {
-  if (values.length == 0) {
-    values.add(newValue);
+void orderedInsert(List sortedValues, var newValue, [int comparator(v1, v2)]) {
+  if (comparator == null) comparator = (v1, v2) => v1 - v2;
+  if (_DEBUG) verifySorted(sortedValues, comparator);
+  if (sortedValues.length == 0) {
+    sortedValues.add(newValue);
     return;
   }
-  if (comparator == null) comparator = (v1, v2) => v1 - v2;
-  if (comparator(newValue, values[0]) < 0) {
-    values.insert(0, newValue);
+  if (comparator(newValue, sortedValues[0]) < 0) {
+    sortedValues.insert(0, newValue);
+    if (_DEBUG) verifySorted(sortedValues, comparator);
     return;
   }
   int start = 0;
-  int end = values.length;
+  int end = sortedValues.length;
   int pivot = start + (end - start) ~/ 2;
-  while (end - start > 1 || values[pivot] == newValue) {
-    var diff = comparator(newValue, values[pivot]);
+  while (end - start > 1 || sortedValues[pivot] == newValue) {
+    var diff = comparator(newValue, sortedValues[pivot]);
     if (diff == 0) break;
     if (diff > 0) {
       start = pivot;
@@ -66,7 +70,20 @@ void orderedInsert(List values, var newValue, [int comparator(v1, v2)]) {
     }
     pivot = start + (end - start) ~/ 2;
   }
-  values.insert(pivot + 1, newValue);
+  sortedValues.insert(pivot + 1, newValue);
+  if (_DEBUG) verifySorted(sortedValues, comparator);
+}
+
+/// Verify that the given [values] are sorted.
+/// The default [comparator] compares two number.
+void verifySorted(List<int> values, [int comparator(v1, v2)]) {
+  if (comparator == null) comparator = (v1, v2) => v1 - v2;
+  for (int index = 1; index < values.length; ++index) {
+    if (comparator(values[index - 1], values[index]) > 0) {
+      throw 'Unsorted value at values[$index]:'
+          ' ${values[index - 1]}, ${values[index]}\n  $values';
+    }
+  }
 }
 
 /// [Mapper] is the base interface used by worker isolates to extract results
@@ -95,7 +112,7 @@ abstract class InstrumentationMapper extends Mapper {
   /// extracted from the given log entry.
   @override
   void map(String logEntryText) {
-    if (isMapComplete) return;
+    if (isMapStopped) return;
     if (logEntryText == null || logEntryText == "") return;
     if (!logEntryText.startsWith("~")) return;
 

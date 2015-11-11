@@ -8,31 +8,26 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:sintr_worker_lib/instrumentation_query.dart';
+import 'package:sintr_worker_lib/instrumentation_transformer.dart';
 import 'package:sintr_worker_lib/query.dart';
 import 'package:sintr_worker_lib/session_info.dart';
-import 'package:sintr_worker_lib/instrumentation_transformer.dart';
 
 const AVE = 'ave';
 const INCOMPLETE = 'incomplete';
 const MAX = 'max';
 const MIN = 'min';
-const RESPONSE_TIMES = 'responseTimes';
 const RESPONSE_TIME_BUCKETS = 'responseTimeBuckets';
-const RESULT_COUNTS = 'resultCounts';
+const RESPONSE_TIMES = 'responseTimes';
 const RESULT_COUNT_BUCKETS = 'resultCountBuckets';
+const RESULT_COUNTS = 'resultCounts';
 const TOTAL = 'total';
 const V90TH = '90th';
 const V99TH = '99th';
 const VERSION = 'version';
 
-/// Process log line that was encoded by [_composeExtractionResult]
-/// and return a map of current results.
-/// [extracted] is a list containing
-///
-/// * completionTime - the number of milliseconds from request
-///     until completions are provided to the client
-/// * resultCount - the number of suggestions provided
-///
+/// Add an extraction result to the overall [results]
+/// where [extracted] is the result of calling [_composeResult].
 final completionReducer = (String sdkVersion, List extracted, Map results) {
   // Extract current results for SDK
   // version, min, ave, max, count, total, incomplete, etc
@@ -57,8 +52,8 @@ final completionReducer = (String sdkVersion, List extracted, Map results) {
 
   // Update results with new information
   if (completionTime > 0) {
-    _orderedInsert(sdkResults[RESPONSE_TIMES], completionTime);
-    _orderedInsert(sdkResults[RESULT_COUNTS], resultCount);
+    orderedInsert(sdkResults[RESPONSE_TIMES], completionTime);
+    orderedInsert(sdkResults[RESULT_COUNTS], resultCount);
     sdkResults[TOTAL] += completionTime;
     sdkResults[MIN] = _min(sdkResults[MIN], completionTime);
     sdkResults[MAX] = _max(sdkResults[MAX], completionTime);
@@ -80,11 +75,11 @@ final completionReductionMerge = (Map results1, Map results2) {
       var total = sdkResults1[TOTAL] + sdkResults2[TOTAL];
       var values = []..addAll(sdkResults1[RESPONSE_TIMES]);
       for (int completionTime in sdkResults2[RESPONSE_TIMES]) {
-        _orderedInsert(values, completionTime);
+        orderedInsert(values, completionTime);
       }
       var counts = []..addAll(sdkResults1[RESULT_COUNTS]);
       for (int resultCount in sdkResults2[RESULT_COUNTS]) {
-        _orderedInsert(counts, resultCount);
+        orderedInsert(counts, resultCount);
       }
       var sdkResults = {
         VERSION: key,
@@ -107,9 +102,6 @@ final completionReductionMerge = (Map results1, Map results2) {
   });
   return newResults;
 };
-
-final OPEN_BRACE = '{'.codeUnitAt(0);
-final QUOTE = '"'.codeUnitAt(0);
 
 /// Update the calculated values in the SDK results map
 void updateCalculations(sdkResults) {
@@ -157,35 +149,9 @@ int _min(int value1, int value2) {
   return value1 < value2 ? value1 : value2;
 }
 
-/// Insert [newValue] into the sorted list of [values]
-/// such that the list is still sorted.
-void _orderedInsert(List<int> values, int newValue) {
-  if (values.length == 0) {
-    values.add(newValue);
-    return;
-  }
-  if (newValue < values[0]) {
-    values.insert(0, newValue);
-    return;
-  }
-  int start = 0;
-  int end = values.length;
-  int pivot = start + (end - start) ~/ 2;
-  while (end - start > 1 || values[pivot] == newValue) {
-    if (values[pivot] == newValue) break;
-    if (values[pivot] < newValue) {
-      start = pivot;
-    } else {
-      end = pivot;
-    }
-    pivot = start + (end - start) ~/ 2;
-  }
-  values.insert(pivot + 1, newValue);
-}
-
 /// [CompletionMapper] processes session log messages and extracts
 /// metrics for each call to code completion
-class CompletionMapper extends Mapper {
+class CompletionMapper extends InstrumentationMapper {
   /// A mapping of completion notification ID to information abou the completion.
   /// Elements are added when a completion response is found
   /// and removed when the final notification is found.
@@ -196,86 +162,31 @@ class CompletionMapper extends Mapper {
   /// and removed when a matching reponse is found
   Map<String, _Completion> _requestMap = <String, _Completion>{};
 
-  /// The SDK version
-  String _sdkVersion = 'unset';
-
   /// Reporting any partial completion information
   @override
   void cleanup() {
     for (_Completion _ in _requestMap.values) {
       // TODO (danrubel) provide better message for incomplete requests
-      addResult(_sdkVersion, _composeResult(-1, 0));
+      addResult(sdkVersion, _composeResult(-1, 0));
     }
     _requestMap.clear();
     for (_Completion _ in _notificationMap.values) {
       // TODO (danrubel) provide better message for missing notifications
-      addResult(_sdkVersion, _composeResult(-2, 0));
+      addResult(sdkVersion, _composeResult(-2, 0));
     }
     _notificationMap.clear();
   }
 
-  /// Initialize the completion extraction process
   @override
-  Future init(Map<String, dynamic> sessionInfo, AddResult addResult) async {
-    super.init(sessionInfo, addResult);
-    _sdkVersion = sessionInfo[SDK_VERSION] ?? 'unknown';
-  }
-
-  /// Process a log entry and return a string representing the result
-  /// or `null` if no result from the given log entry.
-  @override
-  void map(String logEntryText) {
-    if (logEntryText == null || logEntryText == "") return null;
-    if (!logEntryText.startsWith("~")) return null;
-
-    int index1 = logEntryText.indexOf(':', 1);
-    if (index1 == -1) return null;
-    int time = int.parse(logEntryText.substring(1, index1));
-
-    int index2 = logEntryText.indexOf(':', index1 + 1);
-    if (index2 == -1) return null;
-    String msgType = logEntryText.substring(index1 + 1, index2);
-
-    String message = logEntryText.substring(index2 + 1);
-    _processLogMessage(time, msgType, message);
-  }
-
-  /// Search the given [logMessageText] for the given [key]
-  /// and return the associated value.
-  String _extractJsonValue(String logMessageText, String key) {
-    var prefix = '"$key"::';
-    int start = logMessageText.indexOf(prefix);
-    if (start == -1) throw 'expected $key in $logMessageText';
-    start += prefix.length;
-    int deliminator = logMessageText.codeUnitAt(start);
-    if (deliminator == QUOTE) {
-      // Return quoted string
-      ++start;
-      int end = logMessageText.indexOf('"', start);
-      if (end == -1) throw 'expected value for $key in $logMessageText';
-      return logMessageText.substring(start, end);
-    } else if (deliminator == OPEN_BRACE) {
-      // Return JSON map
-      // TODO (danrubel) handle nested and embedded braces
-      int end = logMessageText.indexOf('}');
-      if (end ==
-          -1) throw 'expected matching brace for $key in $logMessageText';
-      return logMessageText.substring(start, end + 1);
-    }
-    return null;
-  }
-
-  /// Process a log message and return a string representing the result
-  /// or `null` if no result from the given log entry.
-  void _processLogMessage(int time, String msgType, String logMessageText) {
+  void mapLogMessage(int time, String msgType, String logMessageText) {
     if (msgType == 'Req') {
-      String method = _extractJsonValue(logMessageText, 'method');
+      String method = extractJsonValue(logMessageText, 'method');
       _processRequest(time, method, logMessageText);
     } else if (msgType == 'Res') {
-      String requestId = _extractJsonValue(logMessageText, 'id');
+      String requestId = extractJsonValue(logMessageText, 'id');
       _processResponse(time, requestId, logMessageText);
     } else if (msgType == 'Noti') {
-      String event = _extractJsonValue(logMessageText, 'event');
+      String event = extractJsonValue(logMessageText, 'event');
       _processNotification(time, event, logMessageText);
     } else if (msgType == 'Read') {
       // process read entry
@@ -291,6 +202,15 @@ class CompletionMapper extends Mapper {
     //throw 'unknown msgType $msgType in $logMessageText';
   }
 
+  /// Return an extraction result, which is a list containing
+  ///
+  /// * completionTime - the number of milliseconds from request
+  ///     until completions are provided to the client
+  /// * resultCount - the number of suggestions provided
+  ///
+  _composeResult(int responseTimeMs, int resultCount) =>
+      [responseTimeMs, resultCount];
+
   /// Process a log entry representing a notification
   void _processNotification(int time, String event, String logMessageText) {
     if (event == 'completion.results') {
@@ -305,20 +225,16 @@ class CompletionMapper extends Mapper {
       List results = params['results'];
       var responseTimeMs = time - completion.requestTime;
       var resultCount = results.length;
-      addResult(_sdkVersion, _composeResult(responseTimeMs, resultCount));
+      addResult(sdkVersion, _composeResult(responseTimeMs, resultCount));
     }
     return null;
   }
-
-  /// Return an extraction result
-  _composeResult(int responseTimeMs, int resultCount) =>
-      [responseTimeMs, resultCount];
 
   /// Process a log entry representing a request
   void _processRequest(int time, String method, String logMessageText) {
     // Look for completion requests
     if (method == 'completion.getSuggestions') {
-      String requestId = _extractJsonValue(logMessageText, 'id');
+      String requestId = extractJsonValue(logMessageText, 'id');
       _requestMap[requestId] = new _Completion(time);
     }
   }
@@ -327,8 +243,8 @@ class CompletionMapper extends Mapper {
   void _processResponse(int time, String requestId, String logMessageText) {
     _Completion completion = _requestMap.remove(requestId);
     if (completion != null) {
-      String result = _extractJsonValue(logMessageText, 'result');
-      String notificationId = _extractJsonValue(result, 'id');
+      String result = extractJsonValue(logMessageText, 'result');
+      String notificationId = extractJsonValue(result, 'id');
       _notificationMap[notificationId] = completion;
       completion.responseTime = time;
     }

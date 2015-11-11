@@ -17,6 +17,10 @@ abstract class Mapper {
   /// A function used by the mapper to provide results to its client.
   AddResult addResult;
 
+  ///Flag used to signal jobs manager that mapper has finished its work
+  /// and [map] no longer needs to be called.
+  bool isMapStopped = false;
+
   /// Perform mapper initialization.
   /// Return a [Future] indicating when initialization is complete.
   /// Subtypes may override this method.

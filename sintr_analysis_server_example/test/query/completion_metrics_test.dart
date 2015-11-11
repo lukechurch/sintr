@@ -4,6 +4,7 @@
 
 library sintr_worker_lib.completion.test;
 
+import 'package:sintr_worker_lib/instrumentation_query.dart';
 import 'package:sintr_worker_lib/query/completion_metrics.dart';
 import 'package:test/test.dart';
 
@@ -150,8 +151,8 @@ main() {
 
 void _expectSdkResults(Map<String, dynamic> sdkResults, int min, int max,
     int ave, int v90th, int v99th, int incomplete) {
-  _verifySorted(sdkResults[RESPONSE_TIMES]);
-  _verifySorted(sdkResults[RESULT_COUNTS]);
+  verifySorted(sdkResults[RESPONSE_TIMES]);
+  verifySorted(sdkResults[RESULT_COUNTS]);
   expect(sdkResults[RESPONSE_TIMES].length, sdkResults[RESULT_COUNTS].length);
   expect(sdkResults[MIN], min);
   expect(sdkResults[MAX], max);
@@ -159,16 +160,6 @@ void _expectSdkResults(Map<String, dynamic> sdkResults, int min, int max,
   expect(sdkResults[V90TH], v90th);
   expect(sdkResults[V99TH], v99th);
   expect(sdkResults[INCOMPLETE], incomplete);
-}
-
-void _verifySorted(List<int> values) {
-  for (int index = 1; index < values.length; ++index) {
-    if (values[index - 1] > values[index]) {
-      print(values);
-      fail('Unsorted value at values[$index]:'
-          '${values[index - 1]}, ${values[index]}');
-    }
-  }
 }
 
 _merge(Map<String, Map<String, dynamic>> results, String sdkVersion,

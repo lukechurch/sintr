@@ -5,30 +5,45 @@
 library sintr_worker_lib.completion;
 
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
 
 import 'package:sintr_worker_lib/query.dart';
 import 'package:sintr_worker_lib/session_info.dart';
+import 'package:sintr_worker_lib/instrumentation_transformer.dart';
 
 const AVE = 'ave';
 const INCOMPLETE = 'incomplete';
 const MAX = 'max';
 const MIN = 'min';
+const RESPONSE_TIMES = 'responseTimes';
+const RESPONSE_TIME_BUCKETS = 'responseTimeBuckets';
+const RESULT_COUNTS = 'resultCounts';
+const RESULT_COUNT_BUCKETS = 'resultCountBuckets';
 const TOTAL = 'total';
 const V90TH = '90th';
 const V99TH = '99th';
-const VALUES = 'values';
 const VERSION = 'version';
 
 /// Process log line that was encoded by [_composeExtractionResult]
-/// and return a map of current results
-final completionReducer = (String sdkVersion, int completionTime, Map results) {
+/// and return a map of current results.
+/// [extracted] is a list containing
+///
+/// * completionTime - the number of milliseconds from request
+///     until completions are provided to the client
+/// * resultCount - the number of suggestions provided
+///
+final completionReducer = (String sdkVersion, List extracted, Map results) {
   // Extract current results for SDK
-  // version, min, ave, max, count, total, incomplete
+  // version, min, ave, max, count, total, incomplete, etc
+  int completionTime = extracted[0];
+  int resultCount = extracted[1];
   var sdkResults = results[sdkVersion];
   if (sdkResults == null) {
     sdkResults = {
       VERSION: sdkVersion,
-      VALUES: [],
+      RESPONSE_TIMES: [],
+      RESULT_COUNTS: [],
       TOTAL: 0,
       //MIN: 0,
       //AVE: 0,
@@ -42,11 +57,12 @@ final completionReducer = (String sdkVersion, int completionTime, Map results) {
 
   // Update results with new information
   if (completionTime > 0) {
-    _orderedInsert(sdkResults[VALUES], completionTime);
+    _orderedInsert(sdkResults[RESPONSE_TIMES], completionTime);
+    _orderedInsert(sdkResults[RESULT_COUNTS], resultCount);
     sdkResults[TOTAL] += completionTime;
     sdkResults[MIN] = _min(sdkResults[MIN], completionTime);
     sdkResults[MAX] = _max(sdkResults[MAX], completionTime);
-    _updateCalculations(sdkResults);
+    updateCalculations(sdkResults);
   } else {
     ++sdkResults[INCOMPLETE];
   }
@@ -62,19 +78,24 @@ final completionReductionMerge = (Map results1, Map results2) {
       newResults[key] = sdkResults1;
     } else {
       var total = sdkResults1[TOTAL] + sdkResults2[TOTAL];
-      var values = []..addAll(sdkResults1[VALUES]);
-      for (int completionTime in sdkResults2[VALUES]) {
+      var values = []..addAll(sdkResults1[RESPONSE_TIMES]);
+      for (int completionTime in sdkResults2[RESPONSE_TIMES]) {
         _orderedInsert(values, completionTime);
+      }
+      var counts = []..addAll(sdkResults1[RESULT_COUNTS]);
+      for (int resultCount in sdkResults2[RESULT_COUNTS]) {
+        _orderedInsert(counts, resultCount);
       }
       var sdkResults = {
         VERSION: key,
-        VALUES: values,
+        RESPONSE_TIMES: values,
+        RESULT_COUNTS: counts,
         TOTAL: total,
         MIN: _min(sdkResults1[MIN], sdkResults2[MIN]),
         MAX: _max(sdkResults1[MAX], sdkResults2[MAX]),
         INCOMPLETE: sdkResults1[INCOMPLETE] + sdkResults2[INCOMPLETE]
       };
-      _updateCalculations(sdkResults);
+      updateCalculations(sdkResults);
       newResults[key] = sdkResults;
     }
   });
@@ -89,6 +110,40 @@ final completionReductionMerge = (Map results1, Map results2) {
 
 final OPEN_BRACE = '{'.codeUnitAt(0);
 final QUOTE = '"'.codeUnitAt(0);
+
+/// Update the calculated values in the SDK results map
+void updateCalculations(sdkResults) {
+  List<int> values = sdkResults[RESPONSE_TIMES];
+  sdkResults[AVE] = sdkResults[TOTAL] / values.length;
+  sdkResults[V90TH] = values[(values.length * (9 / 10)).floor()];
+  sdkResults[V99TH] = values[(values.length * (99 / 100)).floor()];
+  sdkResults[RESPONSE_TIME_BUCKETS] = _gatherIntoBuckets(values, [32]);
+  var counts = sdkResults[RESULT_COUNTS];
+  sdkResults[RESULT_COUNT_BUCKETS] = _gatherIntoBuckets(counts, [0, 1, 5, 50]);
+}
+
+/// Return a allocation map generated from the given [sortedValues]
+/// where [limits] are the bounds used for the initial set of buckets.
+/// Any values beyond the last bound specified in [limits]
+/// are placed into buckets of size increasing by a multiple of 2
+/// times the last bucket bounds.
+Map<int, int> _gatherIntoBuckets(List<int> sortedValues, List<int> limits) {
+  var limitIter = limits.iterator..moveNext();
+  int limit = limitIter.current;
+  Map<int, int> clusters = {};
+  int lastIndex = 0;
+  for (int index = 0; index < sortedValues.length; ++index) {
+    while (limit < sortedValues[index]) {
+      var count = index - lastIndex;
+      clusters[limit] = count;
+      limit = limitIter.moveNext() ? limitIter.current : limit * 2;
+      lastIndex = index;
+    }
+  }
+  var count = sortedValues.length - lastIndex;
+  clusters[limit] = count;
+  return clusters;
+}
 
 int _max(int value1, int value2) {
   if (value1 == null) return value2;
@@ -128,14 +183,6 @@ void _orderedInsert(List<int> values, int newValue) {
   values.insert(pivot + 1, newValue);
 }
 
-/// Update the calculated values in the SDK results map
-void _updateCalculations(sdkResults) {
-  List<int> values = sdkResults[VALUES];
-  sdkResults[AVE] = sdkResults[TOTAL] / values.length;
-  sdkResults[V90TH] = values[(values.length * (9 / 10)).floor()];
-  sdkResults[V99TH] = values[(values.length * (99 / 100)).floor()];
-}
-
 /// [CompletionMapper] processes session log messages and extracts
 /// metrics for each call to code completion
 class CompletionMapper extends Mapper {
@@ -155,14 +202,14 @@ class CompletionMapper extends Mapper {
   /// Reporting any partial completion information
   @override
   void cleanup() {
-    for (_Completion completion in _requestMap.values) {
+    for (_Completion _ in _requestMap.values) {
       // TODO (danrubel) provide better message for incomplete requests
-      addResult(_sdkVersion, -1);
+      addResult(_sdkVersion, _composeResult(-1, 0));
     }
     _requestMap.clear();
-    for (_Completion completion in _notificationMap.values) {
+    for (_Completion _ in _notificationMap.values) {
       // TODO (danrubel) provide better message for missing notifications
-      addResult(_sdkVersion, -2);
+      addResult(_sdkVersion, _composeResult(-2, 0));
     }
     _notificationMap.clear();
   }
@@ -248,22 +295,24 @@ class CompletionMapper extends Mapper {
   void _processNotification(int time, String event, String logMessageText) {
     if (event == 'completion.results') {
       if (!logMessageText.endsWith(',"isLast"::true}}')) return null;
-      var prefix = '{"event"::"completion.results","params"::{"id"::"';
-      if (!logMessageText.startsWith(prefix)) {
-        throw 'expected $prefix in $logMessageText';
-      }
-      int start = prefix.length;
-      int end = logMessageText.indexOf('"', start);
-      if (end == -1) throw 'expected notification id in $logMessageText';
-      String notificationId = logMessageText.substring(start, end);
+      Map json = JSON.decode(logMessageText.replaceAll("::", ":"));
+      Map params = json['params'];
+      String notificationId = params['id'];
       _Completion completion = _notificationMap.remove(notificationId);
       if (completion == null) {
-        throw 'expected completion request for $logMessageText';
+        throw 'expected completion request for ${trim300(logMessageText)}';
       }
-      addResult(_sdkVersion, time - completion.requestTime);
+      List results = params['results'];
+      var responseTimeMs = time - completion.requestTime;
+      var resultCount = results.length;
+      addResult(_sdkVersion, _composeResult(responseTimeMs, resultCount));
     }
     return null;
   }
+
+  /// Return an extraction result
+  _composeResult(int responseTimeMs, int resultCount) =>
+      [responseTimeMs, resultCount];
 
   /// Process a log entry representing a request
   void _processRequest(int time, String method, String logMessageText) {

@@ -14,35 +14,45 @@ import 'package:sintr_worker_lib/session_info.dart';
 main(List<String> args) async {
   // Extract arguments
   if (args.length != 1) {
-    print("Runs the analysis on a file locally");
+    print("Runs the analysis locally on a file or all files in a directory");
     print("Usage: test_driver.dart logFile");
     io.exit(1);
   }
   String path = args[0];
-  var file = new io.File(path);
+  List<io.FileSystemEntity> files = io.FileSystemEntity.isDirectorySync(path)
+      ? new io.Directory(path).listSync()
+      : [new io.File(path)];
+
+  // Extract from each file
   var extracted = [];
+  for (io.FileSystemEntity file in files) {
+    if (file is io.File) {
+      print('----- extracting from $file');
+      // Initialize query specific objects
+      TestMapper mapper = new TestMapper(new CompletionMapper(), file.path);
+
+      // Extraction
+      await mapper.init({}, (String key, value) {
+        extracted.add([key, value]);
+      });
+      await for (String logEntry in file
+          .openRead()
+          .transform(UTF8.decoder)
+          .transform(new LineSplitter())
+          .transform(new LogItemTransformer())
+          .handleError((e, s) {
+        ++mapper.readFailureCount;
+        print("Error reading line\n${trim300(e.toString())}\n$s");
+      })) {
+        mapper.map(logEntry);
+      }
+      mapper.cleanup();
+    }
+  }
 
   // Initialize query specific objects
-  TestMapper mapper = new TestMapper(new CompletionMapper(), path);
   var reducer = completionReducer;
   var reductionMerge = completionReductionMerge;
-
-  // Extraction
-  await mapper.init({}, (String key, value) {
-    extracted.add([key, value]);
-  });
-  await for (String logEntry in file
-      .openRead()
-      .transform(UTF8.decoder)
-      .transform(new LineSplitter())
-      .transform(new LogItemTransformer())
-      .handleError((e, s) {
-    ++mapper.readFailureCount;
-    print("Error reading line\n${trim300(e.toString())}\n$s");
-  })) {
-    mapper.map(logEntry);
-  }
-  mapper.cleanup();
 
   // Reduce the information into two separate result maps
   var reduced1 = <String, dynamic>{};
@@ -90,7 +100,9 @@ class TestMapper implements Mapper {
 
   @override
   Future init(Map<String, dynamic> sessionInfo, AddResult addResult) async {
-    if (!sessionFilePath.endsWith('.json')) throw 'expected *.json';
+    if (!sessionFilePath.endsWith('.json')) {
+      throw 'expected *.json but found $sessionFilePath';
+    }
     var index = sessionFilePath.indexOf('-', sessionFilePath.lastIndexOf('/'));
     var name = sessionFilePath.substring(index + 1, sessionFilePath.length - 5);
     Map sessionInfo;

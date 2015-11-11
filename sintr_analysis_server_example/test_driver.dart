@@ -6,7 +6,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' as io;
 
-import 'package:sintr_worker_lib/query/completion_metrics.dart';
 import 'package:sintr_worker_lib/instrumentation_transformer.dart';
 import 'package:sintr_worker_lib/query.dart';
 import 'package:sintr_worker_lib/query/session_ldap.dart';
@@ -29,6 +28,7 @@ main(List<String> args) async {
   for (io.FileSystemEntity file in files) {
     if (file is io.File) {
       print('----- extracting from $file');
+      var stopwatch = new Stopwatch()..start();
 
       // Initialize query specific objects
       TestMapper mapper = new TestMapper(new SessionLdapMapper(), file.path);
@@ -47,10 +47,17 @@ main(List<String> args) async {
         print("Error reading line\n${trim300(e.toString())}\n$s");
       })) {
         mapper.map(logEntry);
+        if (mapper.isMapComplete) {
+          break;
+        }
       }
       mapper.cleanup();
+
+      stopwatch.stop();
+      print('extraction complete in ${stopwatch.elapsedMilliseconds} ms');
     }
   }
+  print('----- reducing');
 
   // Initialize query specific objects
   var reducer = sessionLdapReducer;
@@ -88,6 +95,12 @@ class TestMapper implements Mapper {
   int readFailureCount = 0;
 
   TestMapper(this.mapper, this.sessionFilePath);
+
+  @override
+  bool get isMapComplete => mapper.isMapComplete;
+
+  @override
+  void set isMapComplete(bool _) => throw 'unsupported';
 
   @override
   void cleanup() {

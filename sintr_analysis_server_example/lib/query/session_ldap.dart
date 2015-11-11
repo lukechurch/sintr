@@ -49,13 +49,6 @@ final sessionLdapReductionMerge = (Map results1, Map results2) {
 /// [CompletionMapper] processes session log messages and extracts
 /// an LDAP for the current session.
 class SessionLdapMapper extends InstrumentationMapper {
-  bool found = false;
-
-  @override
-  void map(String logEntryText) {
-    // TODO (danrubel) Add mechanism for Mappers to exit early if map complete.
-    if (!found) super.map(logEntryText);
-  }
 
   @override
   void mapLogMessage(int time, String msgType, String logMessageText) {
@@ -76,7 +69,7 @@ class SessionLdapMapper extends InstrumentationMapper {
           int end = path.indexOf('/', start);
           if (end != -1) {
             addResult(sessionId, path.substring(start, end));
-            found = true;
+            isMapComplete = true;
             return;
           }
         }
@@ -88,7 +81,7 @@ class SessionLdapMapper extends InstrumentationMapper {
         int end = path.indexOf('/', start);
         if (end != -1) {
           addResult(sessionId, path.substring(start, end));
-          found = true;
+          isMapComplete = true;
           return;
         }
       }

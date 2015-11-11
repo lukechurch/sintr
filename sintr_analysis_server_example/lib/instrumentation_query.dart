@@ -95,15 +95,16 @@ abstract class InstrumentationMapper extends Mapper {
   /// extracted from the given log entry.
   @override
   void map(String logEntryText) {
-    if (logEntryText == null || logEntryText == "") return null;
-    if (!logEntryText.startsWith("~")) return null;
+    if (isMapComplete) return;
+    if (logEntryText == null || logEntryText == "") return;
+    if (!logEntryText.startsWith("~")) return;
 
     int index1 = logEntryText.indexOf(':', 1);
-    if (index1 == -1) return null;
+    if (index1 == -1) return;
     int time = int.parse(logEntryText.substring(1, index1));
 
     int index2 = logEntryText.indexOf(':', index1 + 1);
-    if (index2 == -1) return null;
+    if (index2 == -1) return;
     String msgType = logEntryText.substring(index1 + 1, index2);
 
     String message = logEntryText.substring(index2 + 1);

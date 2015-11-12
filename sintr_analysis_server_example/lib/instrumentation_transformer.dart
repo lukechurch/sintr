@@ -6,9 +6,9 @@ library sintr_worker_lib.instrumentation_transformer;
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:crypto/crypto.dart' as crypto;
-import 'dart:math';
 
 /// Return a string that is at most 300 char long.
 String trim300(String exMsg) {
@@ -34,13 +34,13 @@ class LogItemTransformer extends Converter<String, List<String>> {
 
   _LogItemSink _logSink;
 
+  LogItemTransformer({this.allowNonSequentialMsgs: false});
+
   /// The MsgN of the last message in the session log.
   int get lastMsgN => _logSink.lastMsgN;
 
   /// The number of missing messages.
   int get missingMsgCount => _logSink.missingMsgCount;
-
-  LogItemTransformer({this.allowNonSequentialMsgs: false});
 
   @override
   List<String> convert(String input) {
@@ -61,7 +61,7 @@ class _LogItemSink extends StringConversionSinkBase {
 
   // Sanity check tracking: {"sessionID":"1422988642527.3444824218750","msgN":0,
   String sessionID;
-  int lastMsgN;
+  int lastMsgN = -1;
 
   /// The carry-over from the previous chunk.
   String _carry;
@@ -91,15 +91,20 @@ class _LogItemSink extends StringConversionSinkBase {
     }
 
     // Sanity check messages are sequential
+    bool ignorePartialMsgLines = false;
     int nextMsgN = dataMap["msgN"];
-    if (lastMsgN != null) {
-      if (nextMsgN != lastMsgN + 1) {
-        missingMsgCount += max(nextMsgN - lastMsgN - 1, 0);
-        if (!allowNonSequentialMsgs || nextMsgN < lastMsgN + 1) {
-          var exMsg = "Non-sequential MsgN in file: $lastMsgN, $nextMsgN";
-          lastMsgN = nextMsgN;
-          throw exMsg;
-        }
+    if (nextMsgN != lastMsgN + 1) {
+      // Clear any carry over from the previous block
+      // and ignore any partial msg lines at the beginning of the block
+      _carry = null;
+      ignorePartialMsgLines = true;
+      missingMsgCount += max(nextMsgN - lastMsgN - 1, 0);
+
+      // Throw an exception if non-sequential blocks are not allowed
+      if (!allowNonSequentialMsgs || nextMsgN < lastMsgN + 1) {
+        var exMsg = "Non-sequential MsgN in file: $lastMsgN, $nextMsgN";
+        lastMsgN = nextMsgN;
+        throw exMsg;
       }
     }
     lastMsgN = nextMsgN;
@@ -116,11 +121,17 @@ class _LogItemSink extends StringConversionSinkBase {
     StringBuffer logEntry;
     for (String line in new LineSplitter().convert(expanded)) {
       if (line.startsWith("~")) {
+        ignorePartialMsgLines = false;
         if (logEntry != null) {
           _sink.add(logEntry.toString());
         }
         logEntry = new StringBuffer()..write(line);
       } else {
+        // If a non-sequential block was encountered
+        // then ignore any partial msg lines at the beginning of the block
+        if (ignorePartialMsgLines) continue;
+
+        // Build the log entry to be forwarded
         if (logEntry != null) {
           logEntry.writeln();
           logEntry.write(line);

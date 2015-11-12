@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart' as crypto;
+import 'dart:math';
 
 /// Return a string that is at most 300 char long.
 String trim300(String exMsg) {
@@ -31,9 +32,13 @@ class LogItemTransformer extends Converter<String, List<String>> {
   /// or `false` if an exception should be thrown.
   final bool allowNonSequentialMsgs;
 
-  /// `true` if [allowNonSequentialMsgs] is `true`
-  /// and a non sequential block is found.
-  bool hasNonSequentialMsgs = false;
+  _LogItemSink _logSink;
+
+  /// The MsgN of the last message in the session log.
+  int get lastMsgN => _logSink.lastMsgN;
+
+  /// The number of missing messages.
+  int get missingMsgCount => _logSink.missingMsgCount;
 
   LogItemTransformer({this.allowNonSequentialMsgs: false});
 
@@ -46,7 +51,8 @@ class LogItemTransformer extends Converter<String, List<String>> {
     if (sink is! StringConversionSink) {
       sink = new StringConversionSink.from(sink);
     }
-    return new _LogItemSink(sink, allowNonSequentialMsgs);
+    _logSink = new _LogItemSink(sink, allowNonSequentialMsgs);
+    return _logSink;
   }
 }
 
@@ -66,9 +72,8 @@ class _LogItemSink extends StringConversionSinkBase {
   /// if a non sequential block is found.
   bool allowNonSequentialMsgs;
 
-  /// `true` if [allowNonSequentialMsgs] is `true`
-  /// and a non sequential block is found.
-  bool hasNonSequentialMsgs = false;
+  /// The number of missing messages.
+  int missingMsgCount = 0;
 
   _LogItemSink(this._sink, this.allowNonSequentialMsgs);
 
@@ -89,10 +94,12 @@ class _LogItemSink extends StringConversionSinkBase {
     int nextMsgN = dataMap["msgN"];
     if (lastMsgN != null) {
       if (nextMsgN != lastMsgN + 1) {
-        if (allowNonSequentialMsgs) {
-          throw "Non-sequential MsgN in file: $lastMsgN, $nextMsgN";
+        missingMsgCount += max(nextMsgN - lastMsgN - 1, 0);
+        if (!allowNonSequentialMsgs || nextMsgN < lastMsgN + 1) {
+          var exMsg = "Non-sequential MsgN in file: $lastMsgN, $nextMsgN";
+          lastMsgN = nextMsgN;
+          throw exMsg;
         }
-        hasNonSequentialMsgs = true;
       }
     }
     lastMsgN = nextMsgN;

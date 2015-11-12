@@ -27,6 +27,16 @@ String trim300(String exMsg) {
 ///     }
 ///
 class LogItemTransformer extends Converter<String, List<String>> {
+  /// `true` if non-sequential message blocks should be tolerated
+  /// or `false` if an exception should be thrown.
+  final bool allowNonSequentialMsgs;
+
+  /// `true` if [allowNonSequentialMsgs] is `true`
+  /// and a non sequential block is found.
+  bool hasNonSequentialMsgs = false;
+
+  LogItemTransformer({this.allowNonSequentialMsgs: false});
+
   @override
   List<String> convert(String input) {
     throw 'not implemented yet';
@@ -36,7 +46,7 @@ class LogItemTransformer extends Converter<String, List<String>> {
     if (sink is! StringConversionSink) {
       sink = new StringConversionSink.from(sink);
     }
-    return new _LogItemSink(sink);
+    return new _LogItemSink(sink, allowNonSequentialMsgs);
   }
 }
 
@@ -50,7 +60,17 @@ class _LogItemSink extends StringConversionSinkBase {
   /// The carry-over from the previous chunk.
   String _carry;
 
-  _LogItemSink(this._sink);
+  /// `true` if non-sequential message blocks should be tolerated
+  /// or `false` if an exception should be thrown.
+  /// If `true` then [hasNonSequentialMsgs] will be set `true`
+  /// if a non sequential block is found.
+  bool allowNonSequentialMsgs;
+
+  /// `true` if [allowNonSequentialMsgs] is `true`
+  /// and a non sequential block is found.
+  bool hasNonSequentialMsgs = false;
+
+  _LogItemSink(this._sink, this.allowNonSequentialMsgs);
 
   @override
   void addSlice(String chunk, int start, int end, bool isLast) {
@@ -69,7 +89,10 @@ class _LogItemSink extends StringConversionSinkBase {
     int nextMsgN = dataMap["msgN"];
     if (lastMsgN != null) {
       if (nextMsgN != lastMsgN + 1) {
-        throw "Non-sequential MsgN in file: $lastMsgN, $nextMsgN";
+        if (allowNonSequentialMsgs) {
+          throw "Non-sequential MsgN in file: $lastMsgN, $nextMsgN";
+        }
+        hasNonSequentialMsgs = true;
       }
     }
     lastMsgN = nextMsgN;

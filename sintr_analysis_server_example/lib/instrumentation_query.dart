@@ -43,6 +43,29 @@ String extractJsonValue(String logMessageText, String key) {
   return null;
 }
 
+/// Merge two result maps containing only numeric values
+/// where values for equal keys are added in the final result.
+Map mergeBucketsRecursively(Map results1, Map results2) {
+  Map results = {};
+  results1.forEach((key, value1) {
+    var value2 = results2[key];
+    if (value2 == null) {
+      results[key] = value1;
+    } else if (value1 is Map) {
+      results[key] = mergeBucketsRecursively(value1, value2);
+    } else {
+      results[key] = value1 + value2;
+    }
+  });
+  results2.forEach((key, value2) {
+    var value1 = results1[key];
+    if (value1 == null) {
+      results[key] = value2;
+    }
+  });
+  return results;
+}
+
 /// Insert [newValue] into the sorted list of [sortedValues]
 /// such that the list is still sorted.
 void orderedInsert(List sortedValues, var newValue, [int comparator(v1, v2)]) {
@@ -72,6 +95,24 @@ void orderedInsert(List sortedValues, var newValue, [int comparator(v1, v2)]) {
   }
   sortedValues.insert(pivot + 1, newValue);
   if (_DEBUG) verifySorted(sortedValues, comparator);
+}
+
+/// Increment the count in the bucket containing [value]
+/// where [limits] are the bounds used for the initial set of buckets.
+/// Any values beyond the last bound specified in [limits]
+/// are placed into buckets of size increasing by a multiple of 2
+/// times the last bucket bounds.
+void updateBucket(Map<int, int> buckets, int value,
+    {List<int> limits: const [0, 1, 5, 25, 50]}) {
+  var limitIter = limits.iterator..moveNext();
+  int limit = limitIter.current;
+  int lastIndex = 0;
+  while (limit < value) {
+    buckets.putIfAbsent(limit, () => 0);
+    limit = limitIter.moveNext() ? limitIter.current : limit * 2;
+  }
+  buckets.putIfAbsent(limit, () => 0);
+  ++buckets[limit];
 }
 
 /// Verify that the given [values] are sorted.

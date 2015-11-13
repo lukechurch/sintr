@@ -39,6 +39,7 @@ final completionReducer = (String sdkVersion, List extracted, Map results) {
     sdkResults = {
       VERSION: sdkVersion,
       RESPONSE_TIMES: [],
+      RESPONSE_TIME_BUCKETS: {},
       RESULT_COUNTS: [],
       TOTAL: 0,
       //MIN: 0,
@@ -58,6 +59,8 @@ final completionReducer = (String sdkVersion, List extracted, Map results) {
     sdkResults[TOTAL] += completionTime;
     sdkResults[MIN] = _min(sdkResults[MIN], completionTime);
     sdkResults[MAX] = _max(sdkResults[MAX], completionTime);
+    updateBucket(sdkResults[RESPONSE_TIME_BUCKETS], completionTime,
+        limits: [0, 1, 5, 10, 20, 30, 40, 50, 100, 150, 200, 250]);
     updateCalculations(sdkResults);
   } else {
     ++sdkResults[INCOMPLETE];
@@ -85,6 +88,9 @@ final completionReductionMerge = (Map results1, Map results2) {
       var sdkResults = {
         VERSION: key,
         RESPONSE_TIMES: values,
+        RESPONSE_TIME_BUCKETS: mergeBucketsRecursively(
+            sdkResults1[RESPONSE_TIME_BUCKETS],
+            sdkResults2[RESPONSE_TIME_BUCKETS]),
         RESULT_COUNTS: counts,
         TOTAL: total,
         MIN: _min(sdkResults1[MIN], sdkResults2[MIN]),
@@ -111,7 +117,6 @@ void updateCalculations(sdkResults) {
   sdkResults[V90TH] = values[(values.length * (9 / 10)).floor()];
   sdkResults[V95TH] = values[(values.length * (95 / 100)).floor()];
   sdkResults[V99TH] = values[(values.length * (99 / 100)).floor()];
-  sdkResults[RESPONSE_TIME_BUCKETS] = _gatherIntoBuckets(values, [32]);
   var counts = sdkResults[RESULT_COUNTS];
   sdkResults[RESULT_COUNT_BUCKETS] = _gatherIntoBuckets(counts, [0, 1, 5, 50]);
 }

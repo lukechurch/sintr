@@ -14,11 +14,15 @@ main() {
 
     results = completionReducer('sdk1', [24, 99], results);
     expect(results, hasLength(1));
-    _expectSdkResults(results['sdk1'], 24, 24, 24, 24, 24, 24, 0);
+    _expectSdkResults(results['sdk1'], 24, 24, 24, 24, 24, 24, 0,
+      expectedResponseTimeBuckets: {
+        0:0, 1:0, 5:0, 10:0, 20:0, 30:1});
 
     results = completionReducer('sdk1', [12, 99], results);
     expect(results, hasLength(1));
-    _expectSdkResults(results['sdk1'], 12, 24, 18, 24, 24, 24, 0);
+    _expectSdkResults(results['sdk1'], 12, 24, 18, 24, 24, 24, 0,
+        expectedResponseTimeBuckets: {
+          0:0, 1:0, 5:0, 10:0, 20:1, 30:1});
 
     var newValues = [];
     for (int count = 2; count <= 100; ++count) {
@@ -29,23 +33,33 @@ main() {
       results = completionReducer('sdk1', [value, 99], results);
     });
     expect(results, hasLength(1));
-    _expectSdkResults(results['sdk1'], 12, 200, 148, 190, 195, 199, 0);
+    _expectSdkResults(results['sdk1'], 12, 200, 148, 190, 195, 199, 0,
+        expectedResponseTimeBuckets: {
+          0:0, 1:0, 5:0, 10:0, 20:1, 30:1, 40:0, 50:0, 100:0, 150:49, 200:50});
 
     newValues.shuffle();
     newValues.forEach((value) {
       results = completionReducer('sdk1', [value, 99], results);
     });
     expect(results, hasLength(1));
-    _expectSdkResults(results['sdk1'], 12, 200, 150, 191, 196,  200, 0);
+    _expectSdkResults(results['sdk1'], 12, 200, 150, 191, 196,  200, 0,
+        expectedResponseTimeBuckets: {
+          0:0, 1:0, 5:0, 10:0, 20:1, 30:1, 40:0, 50:0, 100:0, 150:98, 200:100});
 
     results = completionReducer('sdk1', [-1, 0], results);
     expect(results, hasLength(1));
-    _expectSdkResults(results['sdk1'], 12, 200, 150, 191, 196, 200, 1);
+    _expectSdkResults(results['sdk1'], 12, 200, 150, 191, 196, 200, 1,
+        expectedResponseTimeBuckets: {
+          0:0, 1:0, 5:0, 10:0, 20:1, 30:1, 40:0, 50:0, 100:0, 150:98, 200:100});
 
     results = completionReducer('sdk2', [27, 99], results);
     expect(results, hasLength(2));
-    _expectSdkResults(results['sdk1'], 12, 200, 150, 191, 196, 200, 1);
-    _expectSdkResults(results['sdk2'], 27, 27, 27, 27, 27, 27, 0);
+    _expectSdkResults(results['sdk1'], 12, 200, 150, 191, 196, 200, 1,
+        expectedResponseTimeBuckets: {
+          0:0, 1:0, 5:0, 10:0, 20:1, 30:1, 40:0, 50:0, 100:0, 150:98, 200:100});
+    _expectSdkResults(results['sdk2'], 27, 27, 27, 27, 27, 27, 0,
+        expectedResponseTimeBuckets: {
+          0:0, 1:0, 5:0, 10:0, 20:0, 30:1});
   });
 
   test('completionReductionMerge', () {
@@ -53,24 +67,36 @@ main() {
 
     results1 = _merge(results1, 'sdk1', 12);
     expect(results1, hasLength(1));
-    _expectSdkResults(results1['sdk1'], 12, 12, 12, 12, 12, 12, 0);
+    _expectSdkResults(results1['sdk1'], 12, 12, 12, 12, 12, 12, 0,
+        expectedResponseTimeBuckets: {
+          0:0, 1:0, 5:0, 10:0, 20:1});
 
     results1 = _merge(results1, 'sdk1', 24);
     expect(results1, hasLength(1));
-    _expectSdkResults(results1['sdk1'], 12, 24, 18, 24, 24, 24, 0);
+    _expectSdkResults(results1['sdk1'], 12, 24, 18, 24, 24, 24, 0,
+        expectedResponseTimeBuckets: {
+          0:0, 1:0, 5:0, 10:0, 20:1, 30:1});
 
     results1 = _merge(results1, 'sdk1', -1);
     expect(results1, hasLength(1));
-    _expectSdkResults(results1['sdk1'], 12, 24, 18, 24, 24, 24, 1);
+    _expectSdkResults(results1['sdk1'], 12, 24, 18, 24, 24, 24, 1,
+        expectedResponseTimeBuckets: {
+          0:0, 1:0, 5:0, 10:0, 20:1, 30:1});
 
     results1 = _merge(results1, 'sdk1', -2);
     expect(results1, hasLength(1));
-    _expectSdkResults(results1['sdk1'], 12, 24, 18, 24, 24, 24, 2);
+    _expectSdkResults(results1['sdk1'], 12, 24, 18, 24, 24, 24, 2,
+        expectedResponseTimeBuckets: {
+          0:0, 1:0, 5:0, 10:0, 20:1, 30:1});
 
     results1 = _merge(results1, 'sdk2', 27);
     expect(results1, hasLength(2));
-    _expectSdkResults(results1['sdk1'], 12, 24, 18, 24, 24, 24, 2);
-    _expectSdkResults(results1['sdk2'], 27, 27, 27, 27, 27, 27, 0);
+    _expectSdkResults(results1['sdk1'], 12, 24, 18, 24, 24, 24, 2,
+        expectedResponseTimeBuckets: {
+          0:0, 1:0, 5:0, 10:0, 20:1, 30:1});
+    _expectSdkResults(results1['sdk2'], 27, 27, 27, 27, 27, 27, 0,
+        expectedResponseTimeBuckets: {
+          0:0, 1:0, 5:0, 10:0, 20:0, 30:1});
 
     Map<String, Map<String, dynamic>> results2 = {};
 
@@ -83,22 +109,36 @@ main() {
       results2 = _merge(results2, 'sdk1', value);
     });
     expect(results2, hasLength(1));
-    _expectSdkResults(results2['sdk1'], 102, 200, 151, 191, 196, 200, 0);
+    _expectSdkResults(results2['sdk1'], 102, 200, 151, 191, 196, 200, 0,
+        expectedResponseTimeBuckets: {
+          0:0, 1:0, 5:0, 10:0, 20:0, 30:0, 40:0, 50:0, 100:0, 150:49, 200:50});
 
     results2 = _merge(results2, 'sdk1', -2);
     expect(results2, hasLength(1));
-    _expectSdkResults(results2['sdk1'], 102, 200, 151, 191, 196, 200, 1);
+    _expectSdkResults(results2['sdk1'], 102, 200, 151, 191, 196, 200, 1,
+        expectedResponseTimeBuckets: {
+          0:0, 1:0, 5:0, 10:0, 20:0, 30:0, 40:0, 50:0, 100:0, 150:49, 200:50});
 
     results2 = _merge(results2, 'sdk3', 82);
     expect(results2, hasLength(2));
-    _expectSdkResults(results2['sdk1'], 102, 200, 151, 191, 196, 200, 1);
-    _expectSdkResults(results2['sdk3'], 82, 82, 82, 82, 82, 82, 0);
+    _expectSdkResults(results2['sdk1'], 102, 200, 151, 191, 196, 200, 1,
+        expectedResponseTimeBuckets: {
+          0:0, 1:0, 5:0, 10:0, 20:0, 30:0, 40:0, 50:0, 100:0, 150:49, 200:50});
+    _expectSdkResults(results2['sdk3'], 82, 82, 82, 82, 82, 82, 0,
+        expectedResponseTimeBuckets: {
+          0:0, 1:0, 5:0, 10:0, 20:0, 30:0, 40:0, 50:0, 100:1});
 
     var results = completionReductionMerge(results1, results2);
     expect(results, hasLength(3));
-    _expectSdkResults(results['sdk1'], 12, 200, 148, 190, 195, 199, 3);
-    _expectSdkResults(results['sdk2'], 27, 27, 27, 27, 27, 27, 0);
-    _expectSdkResults(results['sdk3'], 82, 82, 82, 82, 82, 82, 0);
+    _expectSdkResults(results['sdk1'], 12, 200, 148, 190, 195, 199, 3,
+        expectedResponseTimeBuckets: {
+          0:0, 1:0, 5:0, 10:0, 20:1, 30:1, 40:0, 50:0, 100:0, 150:49, 200:50});
+    _expectSdkResults(results['sdk2'], 27, 27, 27, 27, 27, 27, 0,
+        expectedResponseTimeBuckets: {
+          0:0, 1:0, 5:0, 10:0, 20:0, 30:1});
+    _expectSdkResults(results['sdk3'], 82, 82, 82, 82, 82, 82, 0,
+        expectedResponseTimeBuckets: {
+          0:0, 1:0, 5:0, 10:0, 20:0, 30:0, 40:0, 50:0, 100:1});
   });
 
   test('updateCalculations', () {
@@ -130,15 +170,8 @@ main() {
     updateCalculations(sdkResults);
     expect(sdkResults[AVE].round(), 54);
     expect(sdkResults[V90TH], 290);
+    expect(sdkResults[V95TH], 387);
     expect(sdkResults[V99TH], 694);
-    Map<int, int> values = sdkResults[RESPONSE_TIME_BUCKETS];
-    expect(values, hasLength(6));
-    expect(values[32], 241);
-    expect(values[64], 21);
-    expect(values[128], 2);
-    expect(values[256], 0);
-    expect(values[512], 27);
-    expect(values[1024], 5);
     Map<int, int> counts = sdkResults[RESULT_COUNT_BUCKETS];
     expect(counts, hasLength(5));
     expect(counts[0], 4);
@@ -150,7 +183,8 @@ main() {
 }
 
 void _expectSdkResults(Map<String, dynamic> sdkResults, int min, int max,
-    int ave, int v90th, int v95th, int v99th, int incomplete) {
+    int ave, int v90th, int v95th, int v99th, int incomplete,
+    {Map<int, int> expectedResponseTimeBuckets}) {
   verifySorted(sdkResults[RESPONSE_TIMES]);
   verifySorted(sdkResults[RESULT_COUNTS]);
   expect(sdkResults[RESPONSE_TIMES].length, sdkResults[RESULT_COUNTS].length);
@@ -161,6 +195,7 @@ void _expectSdkResults(Map<String, dynamic> sdkResults, int min, int max,
   expect(sdkResults[V95TH], v95th);
   expect(sdkResults[V99TH], v99th);
   expect(sdkResults[INCOMPLETE], incomplete);
+  expect(sdkResults[RESPONSE_TIME_BUCKETS], equals(expectedResponseTimeBuckets));
 }
 
 _merge(Map<String, Map<String, dynamic>> results, String sdkVersion,

@@ -8,6 +8,63 @@ import 'package:test/test.dart';
 import 'package:sintr_worker_lib/query/perf.dart';
 
 main() {
+  test('apiUsageReducer', () {
+    Map<String, Map<String, dynamic>> results = {};
+
+    results = apiUsageReducer(
+        'sdk1', ['session1', 111, ANALYSIS_PERF, 'mth1', 182], results);
+    expect(
+        results,
+        equals({
+          'sdk1': {'mth1': 1}
+        }));
+
+    results = apiUsageReducer(
+        'sdk1', ['session1', 111, ANALYSIS_PERF, 'mth1', 27], results);
+    expect(
+        results,
+        equals({
+          'sdk1': {'mth1': 2}
+        }));
+
+    results = apiUsageReducer(
+        'sdk1', ['session1', 111, ANALYSIS_PERF, 'mth2', 33], results);
+    expect(
+        results,
+        equals({
+          'sdk1': {'mth1': 2, 'mth2': 1}
+        }));
+
+    results = apiUsageReducer(
+        'sdk2', ['session1', 111, ANALYSIS_PERF, 'mth2', 33], results);
+    expect(
+        results,
+        equals({
+          'sdk1': {'mth1': 2, 'mth2': 1},
+          'sdk2': {'mth2': 1}
+        }));
+  });
+
+  test('apiUsageReductionMerge', () {
+    var results1 = {
+      'sdk1': {'mth1': 3, 'mth2': 7, 'mth3': 12},
+      'sdk2': {'mth3': 14}
+    };
+    var results2 = {
+      'sdk1': {'mth2': 18, 'mth3': 24, 'mth4': 133},
+      'sdk3': {'mth3': 182}
+    };
+
+    var results = perfReductionMerge(results1, results2);
+    expect(
+        results,
+        equals({
+          'sdk1': {'mth1': 3, 'mth2': 25, 'mth3': 36, 'mth4': 133},
+          'sdk2': {'mth3': 14},
+          'sdk3': {'mth3': 182}
+        }));
+  });
+
   test('perfReducer', () {
     Map<String, Map<String, dynamic>> results = {};
 

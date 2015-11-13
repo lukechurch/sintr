@@ -12,7 +12,25 @@ const ANALYSIS_PERF = 'Analysis';
 const INTERNAL_PERF = 'Internal';
 const REQUEST_PERF = 'Request';
 
-/// Add an extraction result to the overall [results]
+/// Add an extraction result to the overall API usage [results]
+/// where [extracted] is provided by [PerfMapper].
+final apiUsageReducer = (String sdkVersion, List perfData, Map results) {
+  // Extract perf data
+  var perfType = perfData[2];
+  var perfName = perfData[3];
+
+  // Record number of requests of each type per SDK
+  Map sdkResults = results.putIfAbsent(sdkVersion, () => {});
+  sdkResults.putIfAbsent(perfName, () => 0);
+  ++sdkResults[perfName];
+
+  return results;
+};
+
+/// Merge two sets of results
+final apiUsageReductionMerge = perfReductionMerge;
+
+/// Add an extraction result to the overall performance [results]
 /// where [extracted] is provided by [PerfMapper].
 final perfReducer = (String sdkVersion, List perfData, Map results) {
   // Extract perf data

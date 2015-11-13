@@ -6,9 +6,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' as io;
 
+import 'package:path/path.dart';
 import 'package:sintr_worker_lib/instrumentation_transformer.dart';
 import 'package:sintr_worker_lib/query.dart';
-import 'package:sintr_worker_lib/query/session_ldap.dart';
+import 'package:sintr_worker_lib/query/completion_metrics.dart';
+import 'package:sintr_worker_lib/query/exceptions.dart';
 import 'package:sintr_worker_lib/session_info.dart';
 
 main(List<String> args) async {
@@ -19,9 +21,15 @@ main(List<String> args) async {
     io.exit(1);
   }
   String path = args[0];
-  List<io.FileSystemEntity> files = io.FileSystemEntity.isDirectorySync(path)
-      ? new io.Directory(path).listSync()
-      : [new io.File(path)];
+  List<io.FileSystemEntity> files;
+  if (io.FileSystemEntity.isDirectorySync(path)) {
+    files = new io.Directory(path).listSync().where((file) {
+      var name = basename(file.path);
+      return name.startsWith('compressed-') && name.endsWith('.json');
+    }).toList();
+  } else {
+    files = [new io.File(path)];
+  }
 
   // Extract from each file
   var extracted = [];
@@ -31,7 +39,7 @@ main(List<String> args) async {
       var stopwatch = new Stopwatch()..start();
 
       // Initialize query specific objects
-      TestMapper mapper = new TestMapper(new SessionLdapMapper(), file.path);
+      TestMapper mapper = new TestMapper(new CompletionMapper(), file.path);
 
       // Extraction
       await mapper.init({}, (String key, value) {
@@ -60,8 +68,8 @@ main(List<String> args) async {
   print('----- reducing');
 
   // Initialize query specific objects
-  var reducer = sessionLdapReducer;
-  var reductionMerge = sessionLdapReductionMerge;
+  var reducer = completionReducer;
+  var reductionMerge = completionReductionMerge;
 
   // Reduce the information into two separate result maps
   var reduced1 = <String, dynamic>{};

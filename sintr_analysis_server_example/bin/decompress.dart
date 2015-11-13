@@ -18,12 +18,11 @@ main(List<String> args) async {
   // Initialization
   final path = args[0];
   var srcName = basename(path);
-  if (!srcName.startsWith('compressed-')) throw 'file is already decompressed';
   var srcFile = new File(path);
   if (!srcFile.existsSync()) throw 'cannot find $path';
-  var dstName = srcName.substring(11);
+  var dstName = "$srcName.unpacked";
   var dstFile = new File(join(srcFile.parent.path, dstName));
-  if (dstFile.existsSync()) throw 'uncompressed file already exists';
+  if (dstFile.existsSync()) throw 'uncompressed file already exists $dstFile';
 
   // Decompress
   print('Decompressing $srcFile\n to $dstFile');

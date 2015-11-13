@@ -47,7 +47,7 @@ final perfReducer = (String sdkVersion, List perfData, Map results) {
   Map perfResults = perfTypeResults.putIfAbsent(perfName, () => {});
 
   // Update current results
-  _updateBucket(perfResults, elapsedTime, [0, 1, 5, 50]);
+  _updateBucket(perfResults, elapsedTime);
   return results;
 };
 
@@ -78,11 +78,13 @@ final perfReductionMerge = (Map results1, Map results2) {
 /// Any values beyond the last bound specified in [limits]
 /// are placed into buckets of size increasing by a multiple of 2
 /// times the last bucket bounds.
-void _updateBucket(Map<int, int> buckets, int value, List<int> limits) {
+void _updateBucket(Map<int, int> buckets, int value,
+    {List<int> limits: const [0, 1, 5, 25, 50]}) {
   var limitIter = limits.iterator..moveNext();
   int limit = limitIter.current;
   int lastIndex = 0;
   while (limit < value) {
+    buckets.putIfAbsent(limit, () => 0);
     limit = limitIter.moveNext() ? limitIter.current : limit * 2;
   }
   buckets.putIfAbsent(limit, () => 0);

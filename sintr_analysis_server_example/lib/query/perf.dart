@@ -1,71 +1,222 @@
-library sintr_worker_lib.instrumentation_lib;
+// Copyright (c) 2015, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+library sintr_worker_lib.query.perf;
 
 import 'dart:convert';
 
-export '../instrumentation_processor.dart';
+import 'package:sintr_worker_lib/instrumentation_query.dart';
 
-_sanityCheck(String ln) {
-  //~1422655684588:Noti:
-  //01234567890123456789
+const ANALYSIS_PERF = 'Analysis';
+const INTERNAL_PERF = 'Internal';
+const REQUEST_PERF = 'Request';
 
-  List<String> splits = ln.split(":");
-  String msgType = splits[1];
+/// Add an extraction result to the overall API usage [results]
+/// where [extracted] is provided by [PerfMapper].
+final apiUsageReducer = (String sdkVersion, List perfData, Map results) {
+  // Extract perf data
+  var perfType = perfData[2];
+  var perfName = perfData[3];
 
-  // Sanity check control signature
-  if (ln[0] != "~") throw "Message signature validation failed ~";
-  if (ln[14] != ":") throw "Message signature validation failed :";
-  if (msgType.length <
-      3) throw "Message signature validation failed no Msgtype";
+  // Record number of requests of each type per SDK
+  Map sdkResults = results.putIfAbsent(sdkVersion, () => {});
+  sdkResults.putIfAbsent(perfName, () => 0);
+  ++sdkResults[perfName];
+
+  return results;
+};
+
+/// Merge two sets of results
+final apiUsageReductionMerge = perfReductionMerge;
+
+/// Add an extraction result to the overall performance [results]
+/// where [extracted] is provided by [PerfMapper].
+final perfReducer = (String sdkVersion, List perfData, Map results) {
+  // Extract perf data
+  var perfType = perfData[2];
+  var perfName = perfData[3];
+  var elapsedTime = perfData[4];
+
+  // Sanity check
+  if (elapsedTime is! int) return results;
+
+  // Extract current results
+  Map sdkResults = results.putIfAbsent(sdkVersion, () => {});
+  Map perfTypeResults = sdkResults.putIfAbsent(perfType, () => {});
+  Map perfResults = perfTypeResults.putIfAbsent(perfName, () => {});
+
+  // Update current results
+  _updateBucket(perfResults, elapsedTime);
+  return results;
+};
+
+/// Merge two sets of results
+final perfReductionMerge = (Map results1, Map results2) {
+  Map results = {};
+  results1.forEach((key, value1) {
+    var value2 = results2[key];
+    if (value2 == null) {
+      results[key] = value1;
+    } else if (value1 is Map) {
+      results[key] = perfReductionMerge(value1, value2);
+    } else {
+      results[key] = value1 + value2;
+    }
+  });
+  results2.forEach((key, value2) {
+    var value1 = results1[key];
+    if (value1 == null) {
+      results[key] = value2;
+    }
+  });
+  return results;
+};
+
+/// Increment the count in the bucket containing [value]
+/// where [limits] are the bounds used for the initial set of buckets.
+/// Any values beyond the last bound specified in [limits]
+/// are placed into buckets of size increasing by a multiple of 2
+/// times the last bucket bounds.
+void _updateBucket(Map<int, int> buckets, int value,
+    {List<int> limits: const [0, 1, 5, 25, 50]}) {
+  var limitIter = limits.iterator..moveNext();
+  int limit = limitIter.current;
+  int lastIndex = 0;
+  while (limit < value) {
+    buckets.putIfAbsent(limit, () => 0);
+    limit = limitIter.moveNext() ? limitIter.current : limit * 2;
+  }
+  buckets.putIfAbsent(limit, () => 0);
+  ++buckets[limit];
 }
 
-final extractPerf = (String ln) {
-  _sanityCheck(ln);
-  List<String> splits = ln.split(":");
-  String msgType = splits[1];
+/// [PerfMapper] processes session messages and extracts 'Perf' entries
+/// along with request/response pair performance.
+/// Results keys are [sdkVersion] and values are a list containing
+///
+/// * [sessionId]
+/// * time
+/// * perfType (one of INTERNAL_PERF, REQUEST_RESPONSE_PERF, ...)
+/// * perfName or request API method
+/// * elapse time milliseconds reported by 'Perf'
+///     or elapse time milliseconds between request/response
+/// * ... additional perf data if any ...
+///
+class PerfMapper extends InstrumentationMapper {
+  /// A map of request id to [Request]
+  Map<String, Request> requestMap = {};
 
-  if (msgType == "Perf") return ln;
-  else return null;
+  /// The number of responses for which requests were not found
+  var missingRequestCount = 0;
 
-  int time = int.parse(splits[0].substring(1));
-  return [time, msgType];
-};
+  /// The time at which analysis was first requested...
+  ///   `analysis.setAnalysisRoots` or `analysis.reanalyze`
+  int analysisStartTime;
 
-Map _reqMap = {};
-final extractReqResPerf = (String ln) {
-  _sanityCheck(ln);
-  List<String> splits = ln.split(":");
-  String msgType = splits[1];
+  /// The time at which pub list is called.
+  int pubListStartTime;
 
-  if (msgType != "Req" && msgType != "Res") return null;
-  int time = int.parse(splits[0].substring(1));
-
-//  ~1422652636123:Req:{"id"::"89","method"::"completion.getSuggestions","params"::{"file"::"...","offset"::152868},"clientRequestTime"::1422652634934}
-// ~1422652636123:Res:{"id"::"89","result"::{"id"::"11"}}
-
-  String dataArea = ln.substring("~1422652636123:Req:".length);
-  var dataMap = JSON.decode(dataArea.replaceAll("::", ":"));
-  var id = dataMap["id"];
-
-  if (msgType == "Req") {
-    _reqMap.putIfAbsent(id, () => dataMap["clientRequestTime"]);
-  }
-
-  if (msgType == "Res") {
-    if (!_reqMap.containsKey(id)) {
-      print("Invariant violation");
-      return null;
+  @override
+  void mapLogMessage(int time, String msgType, String logMessageText) {
+    if (msgType == 'Perf') {
+      _processPerf(time, logMessageText);
+    } else if (msgType == 'Req') {
+      String method = extractJsonValue(logMessageText, 'method');
+      _processRequest(time, method, logMessageText);
+    } else if (msgType == 'Res') {
+      String requestId = extractJsonValue(logMessageText, 'id');
+      _processResponse(time, requestId, logMessageText);
+    } else if (msgType == 'Noti') {
+      String event = extractJsonValue(logMessageText, 'event');
+      _processNotification(time, event, logMessageText);
     }
-
-    return [id, time - _reqMap[id]];
   }
-};
 
-final extractMsgSeq = (String ln) {
-  _sanityCheck(ln);
+  void _processNotification(int time, String event, String logMessageText) {
+    // {"event"::"server.status","params":: .....
+    if (event == 'server.status') {
+      if (analysisStartTime != null) {
+        var json = JSON.decode(logMessageText.replaceAll('::', ':'));
+        var params = json['params'];
+        if (params != null) {
+          // "params"::{"analysis"::{"isAnalyzing"::false}}
+          var analysis = params['analysis'];
+          if (analysis != null) {
+            if (analysisStartTime != null) {
+              var isAnalyzing = analysis['isAnalyzing'];
+              if (isAnalyzing == false) {
+                var elapsedTimeMs = time - analysisStartTime;
+                addResult(sdkVersion, [
+                  sessionId,
+                  time,
+                  ANALYSIS_PERF,
+                  'complete',
+                  elapsedTimeMs
+                ]);
+                analysisStartTime = null;
+              }
+            }
+          }
 
-  List<String> splits = ln.split(":");
-  String msgType = splits[1];
+          // "params"::{"pub"::{"isListingPackageDirs"::true}}
+          var pub = params['pub'];
+          if (pub != null) {
+            var isListingPackageDirs = pub['isListingPackageDirs'];
+            if (isListingPackageDirs == true) {
+              pubListStartTime = time;
+            }
+            if (isListingPackageDirs == false && pubListStartTime != null) {
+              var elapsedTimeMs = time - pubListStartTime;
+              addResult(sdkVersion,
+                  [sessionId, time, ANALYSIS_PERF, 'pubList', elapsedTimeMs]);
+              pubListStartTime = null;
+            }
+          }
+        }
+      }
+    }
+  }
 
-  int time = int.parse(splits[0].substring(1));
-  return [time, msgType];
-};
+  void _processPerf(int time, String logMessageText) {
+    // ~1428628074716:Perf:analysis_full:607:context_id=3
+    var perfData = [sessionId, time, INTERNAL_PERF]
+      ..addAll(logMessageText.split(':'));
+    try {
+      perfData[4] = int.parse(perfData[4]);
+    } catch (e) {
+      // ignored
+    }
+    addResult(sdkVersion, perfData);
+  }
+
+  void _processRequest(int time, String method, String logMessageText) {
+    // ~1422652636123:Req:{"id"::"89","method"::"completion.getSuggestions" ...
+    var id = extractJsonValue(logMessageText, 'id');
+    requestMap[id] = new Request(time, id, method);
+    if (method == 'analysis.reanalyze' ||
+        method == 'analysis.setAnalysisRoots') {
+      analysisStartTime = time;
+    }
+  }
+
+  void _processResponse(int time, String requestId, String logMessageText) {
+    // ~1422652636123:Res:{"id"::"89","result"::{"id"::"11"}}
+    var id = extractJsonValue(logMessageText, 'id');
+    var request = requestMap.remove(id);
+    if (request == null) {
+      ++missingRequestCount;
+    } else {
+      var elapsedTimeMs = time - request.time;
+      addResult(sdkVersion,
+          [sessionId, time, REQUEST_PERF, request.method, elapsedTimeMs]);
+    }
+  }
+}
+
+class Request {
+  final int time;
+  final String id;
+  final String method;
+  Request(this.time, this.id, this.method);
+}

@@ -4,14 +4,10 @@
 
 library sintr_worker_lib.completion;
 
-import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 
 import 'package:sintr_worker_lib/instrumentation_query.dart';
 import 'package:sintr_worker_lib/instrumentation_transformer.dart';
-import 'package:sintr_worker_lib/query.dart';
-import 'package:sintr_worker_lib/session_info.dart';
 
 const AVE = 'ave';
 const INCOMPLETE = 'incomplete';

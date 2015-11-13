@@ -106,7 +106,6 @@ void updateBucket(Map<int, int> buckets, int value,
     {List<int> limits: const [0, 1, 5, 25, 50]}) {
   var limitIter = limits.iterator..moveNext();
   int limit = limitIter.current;
-  int lastIndex = 0;
   while (limit < value) {
     buckets.putIfAbsent(limit, () => 0);
     limit = limitIter.moveNext() ? limitIter.current : limit * 2;

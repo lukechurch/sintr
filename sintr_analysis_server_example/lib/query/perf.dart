@@ -20,9 +20,11 @@ final apiUsageReducer = (String sdkVersion, List perfData, Map results) {
   var perfName = perfData[3];
 
   // Record number of requests of each type per SDK
-  Map sdkResults = results.putIfAbsent(sdkVersion, () => {});
-  sdkResults.putIfAbsent(perfName, () => 0);
-  ++sdkResults[perfName];
+  if (perfType == REQUEST_PERF) {
+    Map sdkResults = results.putIfAbsent(sdkVersion, () => {});
+    sdkResults.putIfAbsent(perfName, () => 0);
+    ++sdkResults[perfName];
+  }
 
   return results;
 };

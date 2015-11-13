@@ -23,6 +23,7 @@ const RESULT_COUNT_BUCKETS = 'resultCountBuckets';
 const RESULT_COUNTS = 'resultCounts';
 const TOTAL = 'total';
 const V90TH = '90th';
+const V95TH = '95th';
 const V99TH = '99th';
 const VERSION = 'version';
 
@@ -108,6 +109,7 @@ void updateCalculations(sdkResults) {
   List<int> values = sdkResults[RESPONSE_TIMES];
   sdkResults[AVE] = sdkResults[TOTAL] / values.length;
   sdkResults[V90TH] = values[(values.length * (9 / 10)).floor()];
+  sdkResults[V95TH] = values[(values.length * (95 / 100)).floor()];
   sdkResults[V99TH] = values[(values.length * (99 / 100)).floor()];
   sdkResults[RESPONSE_TIME_BUCKETS] = _gatherIntoBuckets(values, [32]);
   var counts = sdkResults[RESULT_COUNTS];

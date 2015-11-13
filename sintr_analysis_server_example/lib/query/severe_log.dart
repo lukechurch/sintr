@@ -22,7 +22,8 @@ final severeLogReducer = (String sdkVersion, List logData, Map results) {
   Map sessionCounts = sdkResults.putIfAbsent('sessions', () => {});
   sessionCounts.putIfAbsent(sessionId, () => 0);
   ++sessionCounts[sessionId];
-  sdkResults['total'] = sessionCounts.values.fold(0, (c1, c2) => c1 + c2);
+  sdkResults['totalSessions'] =
+      sessionCounts.values.fold(0, (c1, c2) => c1 + c2);
 
   // Update current results
   return results;

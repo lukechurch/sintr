@@ -20,15 +20,17 @@ final apiUsageReducer = (String sdkVersion, List perfData, Map results) {
   var perfName = perfData[3];
 
   // Record number of requests of each type per SDK
-  Map sdkResults = results.putIfAbsent(sdkVersion, () => {});
-  sdkResults.putIfAbsent(perfName, () => 0);
-  ++sdkResults[perfName];
+  if (perfType == REQUEST_PERF) {
+    Map sdkResults = results.putIfAbsent(sdkVersion, () => {});
+    sdkResults.putIfAbsent(perfName, () => 0);
+    ++sdkResults[perfName];
+  }
 
   return results;
 };
 
 /// Merge two sets of results
-final apiUsageReductionMerge = perfReductionMerge;
+final apiUsageReductionMerge = mergeBucketsRecursively;
 
 /// Add an extraction result to the overall performance [results]
 /// where [extracted] is provided by [PerfMapper].
@@ -47,49 +49,12 @@ final perfReducer = (String sdkVersion, List perfData, Map results) {
   Map perfResults = perfTypeResults.putIfAbsent(perfName, () => {});
 
   // Update current results
-  _updateBucket(perfResults, elapsedTime);
+  updateBucket(perfResults, elapsedTime);
   return results;
 };
 
 /// Merge two sets of results
-final perfReductionMerge = (Map results1, Map results2) {
-  Map results = {};
-  results1.forEach((key, value1) {
-    var value2 = results2[key];
-    if (value2 == null) {
-      results[key] = value1;
-    } else if (value1 is Map) {
-      results[key] = perfReductionMerge(value1, value2);
-    } else {
-      results[key] = value1 + value2;
-    }
-  });
-  results2.forEach((key, value2) {
-    var value1 = results1[key];
-    if (value1 == null) {
-      results[key] = value2;
-    }
-  });
-  return results;
-};
-
-/// Increment the count in the bucket containing [value]
-/// where [limits] are the bounds used for the initial set of buckets.
-/// Any values beyond the last bound specified in [limits]
-/// are placed into buckets of size increasing by a multiple of 2
-/// times the last bucket bounds.
-void _updateBucket(Map<int, int> buckets, int value,
-    {List<int> limits: const [0, 1, 5, 25, 50]}) {
-  var limitIter = limits.iterator..moveNext();
-  int limit = limitIter.current;
-  int lastIndex = 0;
-  while (limit < value) {
-    buckets.putIfAbsent(limit, () => 0);
-    limit = limitIter.moveNext() ? limitIter.current : limit * 2;
-  }
-  buckets.putIfAbsent(limit, () => 0);
-  ++buckets[limit];
-}
+final perfReductionMerge = mergeBucketsRecursively;
 
 /// [PerfMapper] processes session messages and extracts 'Perf' entries
 /// along with request/response pair performance.

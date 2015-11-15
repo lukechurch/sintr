@@ -68,8 +68,6 @@ class _LogItemSink extends StringConversionSinkBase {
 
   /// `true` if non-sequential message blocks should be tolerated
   /// or `false` if an exception should be thrown.
-  /// If `true` then [hasNonSequentialMsgs] will be set `true`
-  /// if a non sequential block is found.
   bool allowNonSequentialMsgs;
 
   /// The number of missing messages.

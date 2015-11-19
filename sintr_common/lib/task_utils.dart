@@ -5,6 +5,8 @@
 library sintr_common.task_utils;
 
 import 'dart:async';
+import 'package:crypto/crypto.dart';
+
 import 'package:gcloud/db.dart' as db;
 import 'package:gcloud/service_scope.dart' as ss;
 import 'package:gcloud/src/datastore_impl.dart' as datastore_impl;
@@ -14,6 +16,8 @@ import 'package:sintr_common/logging_utils.dart' as log;
 import 'package:sintr_common/tasks.dart' as tasks;
 import "package:sintr_common/gae_utils.dart" as gae_utils;
 import 'package:gcloud/storage.dart' as storage;
+
+const SOURCE_NAME = "test_worker.json";
 
 // TODO: Migrate the parameters of this file to the configuation common lib
 
@@ -66,6 +70,11 @@ Future createTasks(String JobName, String inputBucketName,
     }
 
     bool ok = false;
+    
+    List<int> md5Bytes =
+      (await cloudstore.bucket(sourceBucketName).info(SOURCE_NAME)).md5Hash;
+    String base64Md5 = BASE64.encode(md5Bytes);
+
     // Dumb retry loop
     for (int tryCount = 0; tryCount < 3; tryCount++) {
       try {
@@ -74,7 +83,7 @@ Future createTasks(String JobName, String inputBucketName,
             taskList,
             // Source locations
             new gae_utils.CloudStorageLocation(
-                sourceBucketName, "test_worker.json"),
+                sourceBucketName, SOURCE_NAME, base64Md5),
 
             // results
             resultsBucketName);

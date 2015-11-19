@@ -15,5 +15,9 @@ dependencies:
   sintr_common:
     path: ../sintr_common
   intl: any
+  many_points:
+    git: git@github.com:marianamarasoiu/many-points.git
+  freckl:
+    git: git@github.com:marianamarasoiu/freckl.git
 dev_dependencies:
   test: '>=0.12.0 <0.13.0'

@@ -44,5 +44,10 @@ class CloudStorageLocation {
   final String bucketName;
   final String objectPath;
 
-  CloudStorageLocation(this.bucketName, this.objectPath);
+  /// Optional: If this is included it should be a base64 encoding of the MD5
+  /// from cloud storage, this can be used to determine whether the sytem
+  /// already has a copy of the file, or whether it has changed
+  final String md5;
+
+  CloudStorageLocation(this.bucketName, this.objectPath, [this.md5]);
 }

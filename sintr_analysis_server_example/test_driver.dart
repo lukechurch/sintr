@@ -10,7 +10,6 @@ import 'package:path/path.dart';
 import 'package:sintr_worker_lib/instrumentation_transformer.dart';
 import 'package:sintr_worker_lib/query.dart';
 import 'package:sintr_worker_lib/query/completion_metrics.dart';
-import 'package:sintr_worker_lib/query/exceptions.dart';
 import 'package:sintr_worker_lib/session_info.dart';
 
 main(List<String> args) async {
@@ -55,9 +54,7 @@ main(List<String> args) async {
         print("Error reading line\n${trim300(e.toString())}\n$s");
       })) {
         mapper.map(logEntry);
-        if (mapper.isMapStopped) {
-          break;
-        }
+        if (mapper.isMapStopped) break;
       }
       mapper.cleanup();
 

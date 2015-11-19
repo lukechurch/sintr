@@ -140,6 +140,9 @@ abstract class InstrumentationMapper extends Mapper {
   /// The session identifier for the session being processed.
   String sessionId = 'unset';
 
+  /// The number of processed log entries
+  int logEntryCount = 0;
+
   /// Initialize the completion extraction process.
   @override
   Future init(Map<String, dynamic> sessionInfo, AddResult addResult) async {
@@ -152,6 +155,8 @@ abstract class InstrumentationMapper extends Mapper {
   /// extracted from the given log entry.
   @override
   void map(String logEntryText) {
+    if (logEntryCount == 1000 * 1000 * 1000) isMapStopped = true;
+    ++logEntryCount;
     if (isMapStopped) return;
     if (logEntryText == null || logEntryText == "") return;
     if (!logEntryText.startsWith("~")) return;

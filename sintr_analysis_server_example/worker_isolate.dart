@@ -81,6 +81,7 @@ Future<String> _protectedHandle(String msg) async {
       lines++;
       // TODO (lukechurch): Add local error capture here
       mapper.map(logEntry);
+      if (mapper.isMapStopped) break;
     }
     mapper.cleanup();
 

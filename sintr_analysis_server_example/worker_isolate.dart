@@ -28,7 +28,7 @@ Future main(List<String> args, SendPort sendPort) async {
 }
 
 Future<String> _protectedHandle(String msg) async {
-  try {
+  return runZoned(() async {
     var inputData = JSON.decode(msg);
     String bucketName = inputData[0];
     String objectPath = inputData[1];
@@ -92,11 +92,11 @@ Future<String> _protectedHandle(String msg) async {
       "linesProcessed": lines,
       "input": "gs://$bucketName/$objectPath"
     });
-  } catch (e, st) {
+  }, onError: (e, st) {
     log.info("Message proc erred. $e \n $st \n");
     log.debug("Input data: $msg");
     return JSON.encode({"error": "${e}", "stackTrace": "${st}"});
-  }
+  });
 }
 
 Future<Stream<List<int>>> getDataFromCloud(

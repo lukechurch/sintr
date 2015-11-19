@@ -90,7 +90,8 @@ Future<String> _protectedHandle(String msg) async {
       "failureCount": failureCount,
       "errItems": errItems,
       "linesProcessed": lines,
-      "input": "gs://$bucketName/$objectPath"
+      "input": "gs://$bucketName/$objectPath",
+      "mapperStoppedBeforeEnd": mapper.isMapStopped
     });
   } catch (e, st) {
     log.info("Message proc erred. $e \n $st \n");

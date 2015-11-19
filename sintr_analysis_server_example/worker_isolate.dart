@@ -6,16 +6,16 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
 
-import 'package:gcloud/storage.dart' as storage;
 import 'package:sintr_common/auth.dart' as auth;
-import 'package:sintr_common/auth.dart';
 import 'package:sintr_common/configuration.dart' as config;
 import 'package:sintr_common/logging_utils.dart' as log;
+import 'package:sintr_worker_lib/bucket_util.dart';
 import 'package:sintr_worker_lib/instrumentation_transformer.dart';
 import 'package:sintr_worker_lib/query/completion_metrics.dart';
 import 'package:sintr_worker_lib/session_info.dart';
 
 const projectName = "liftoff-dev";
+
 var client;
 
 Future main(List<String> args, SendPort sendPort) async {
@@ -40,8 +40,6 @@ Future<String> _protectedHandle(String msg) async {
     // Initialize query specific objects
     var mapper = new CompletionMapper();
 
-    // Completion query specific logic =============
-
     // Skip PRI files
     if (objectPath.contains("PRI")) {
       return JSON.encode({
@@ -53,35 +51,47 @@ Future<String> _protectedHandle(String msg) async {
       });
     }
 
+    // Cloud connect
+    config.configuration = new config.Configuration(projectName,
+      cryptoTokensLocation:
+          "${config.userHomePath}/Communications/CryptoTokens");
+    client = await auth.getAuthedClient();
+
     // Get the session info
     var pathComponents = objectPath.split("/");
     var sessionId = pathComponents.removeLast();
     pathComponents.add("PRI${sessionId}");
     String guessedPRIPath = pathComponents.join("/");
 
-    Stream priDataStream = await getDataFromCloud(bucketName, guessedPRIPath);
-    var sessionInfo = await readSessionInfo(sessionId, priDataStream);
-
-    // ===================
-
-    Stream dataStream = await getDataFromCloud(bucketName, objectPath);
+    var sessionInfo;
+    processFile(client, projectName, bucketName, guessedPRIPath, (String logEntry) {
+      sessionInfo = parseSessionInfo(sessionId, logEntry);
+      throw new StopProcessingFile();
+    }, (ex, st) {
+      errItems.add("Session info erred. ${trim300(ex.toString())} \n $st \n");
+    });
+    if (sessionInfo == null) {
+      return JSON.encode({
+        "result": [],
+        "failureCount": 1,
+        "errItems": errItems,
+        "linesProcessed": 0,
+        "input": "gs://$bucketName/$objectPath"
+      });
+    }
 
     // Extraction
     await mapper.init(sessionInfo, (String key, value) {
       results.add([key, value]);
     });
-    await for (String logEntry in dataStream
-        .transform(UTF8.decoder)
-        .transform(new LineSplitter())
-        .transform(new LogItemTransformer())
-        .handleError((e, s) {
-      failureCount++;
-      errItems.add("Error reading line\n${trim300(e.toString())}\n$s");
-    })) {
+    processFile(client, projectName, bucketName, objectPath, (String logEntry) {
       lines++;
-      // TODO (lukechurch): Add local error capture here
       mapper.map(logEntry);
-    }
+      if (mapper.isMapStopped) throw new StopProcessingFile();
+    }, (ex, st) {
+      failureCount++;
+      errItems.add("Message proc erred. ${trim300(ex.toString())} \n $st \n");
+    });
     mapper.cleanup();
 
     return JSON.encode({
@@ -92,21 +102,9 @@ Future<String> _protectedHandle(String msg) async {
       "input": "gs://$bucketName/$objectPath"
     });
   } catch (e, st) {
+    if (client != null) client.close();
     log.info("Message proc erred. $e \n $st \n");
     log.debug("Input data: $msg");
     return JSON.encode({"error": "${e}", "stackTrace": "${st}"});
   }
-}
-
-Future<Stream<List<int>>> getDataFromCloud(
-    String bucketName, String objectPath) async {
-  config.configuration = new config.Configuration(projectName,
-      cryptoTokensLocation:
-          "${config.userHomePath}/Communications/CryptoTokens");
-
-  client = await auth.getAuthedClient();
-  var sourceStorage = new storage.Storage(client, projectName);
-  Stream<List<int>> rawStream =
-      sourceStorage.bucket(bucketName).read(objectPath);
-  return rawStream;
 }

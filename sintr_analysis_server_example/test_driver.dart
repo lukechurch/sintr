@@ -10,7 +10,6 @@ import 'package:path/path.dart';
 import 'package:sintr_worker_lib/instrumentation_transformer.dart';
 import 'package:sintr_worker_lib/query.dart';
 import 'package:sintr_worker_lib/query/completion_metrics.dart';
-import 'package:sintr_worker_lib/query/severe_log.dart';
 import 'package:sintr_worker_lib/session_info.dart';
 
 main(List<String> args) async {
@@ -39,7 +38,7 @@ main(List<String> args) async {
       var stopwatch = new Stopwatch()..start();
 
       // Initialize query specific objects
-      TestMapper mapper = new TestMapper(new SevereLogMapper(), file.path);
+      TestMapper mapper = new TestMapper(new CompletionMapper(), file.path);
 
       // Extraction
       await mapper.init({}, (String key, value) {
@@ -49,7 +48,7 @@ main(List<String> args) async {
           .openRead()
           .transform(UTF8.decoder)
           .transform(new LineSplitter())
-          .transform(new LogItemTransformer(allowNonSequentialMsgs: true))
+          .transform(new LogItemTransformer())
           .handleError((e, s) {
         ++mapper.readFailureCount;
         print("Error reading line\n${trim300(e.toString())}\n$s");
@@ -66,7 +65,7 @@ main(List<String> args) async {
   print('----- reducing');
 
   // Initialize query specific objects
-  var reducer = severeLogReducer;
+  var reducer = completionReducer;
   var reductionMerge = completionReductionMerge;
 
   // Reduce the information into two separate result maps

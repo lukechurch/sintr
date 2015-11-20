@@ -2,6 +2,8 @@
 # Halt on the first error
 set -e
 
+CLUSTER_SIZE=5
+
 echo "Reseting"
 dart sintr_analysis_server_example/bin/reset.dart --force
 
@@ -14,7 +16,7 @@ echo "Deploying Client code"
 # The next part is slow and can be done in parrallel
 
 echo "Deploying cluster"
-./tools/scripts/deploy_worker_cluster.sh &
+./tools/scripts/deploy_worker_cluster.sh $CLUSTER_SIZE &
 
 echo "Creating tasks"
 dart sintr_analysis_server_example/bin/create_tasks.dart
@@ -25,4 +27,4 @@ dart sintr_analysis_server_example/bin/query.dart --loop
 
 # When we're here the job is done
 echo "Deleting cluster"
-./tools/scripts/delete_cluster.sh
+./tools/scripts/delete_cluster.sh $CLUSTER_SIZE

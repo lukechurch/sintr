@@ -9,7 +9,7 @@ function delete_cluster {
                     # $2 zone
                      WORKER_NAME_BASE=$1
                      ZONE=$2
-                     NODE_COUNT_PER_ZONE=20
+                     NODE_COUNT_PER_ZONE=$3
 
                      echo "Deleting nodes in $2"
 
@@ -25,10 +25,10 @@ function delete_cluster {
                      echo "Nodes in $2 deleted"
                 }
 
-echo "Starting delete"
+echo "Starting delete of " $1
 
-delete_cluster "sintr-worker-usc1c-" "us-central1-c"
-delete_cluster "sintr-worker-use1b-" "us-east1-b"
-# delete_cluster "sintr-worker-usc2a-" "us-central2-a"
+delete_cluster "sintr-worker-usc1c-" "us-central1-c" $1
+delete_cluster "sintr-worker-use1b-" "us-east1-b" $1
+delete_cluster "sintr-worker-usc2a-" "us-central2-a" $1
 
 echo "Cluster delete completed"

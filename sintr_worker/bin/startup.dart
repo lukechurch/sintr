@@ -87,6 +87,8 @@ start(String projectName, String jobName, String _workerFolder) async {
 
 _handleTask(tasks.Task task) async {
   log.trace("Starting task $task");
+  String lastSeenMd5 = null;
+  String cachedSource = null;
 
   Stopwatch sw = new Stopwatch()..start();
   try {
@@ -95,12 +97,24 @@ _handleTask(tasks.Task task) async {
 
 
     log.trace("About to get source");
+    String sourceJSON;
 
-    // TODO: Cache source
-    String sourceJSON = await
-      gae_utils.CloudStorage.getFileContentsByLocation(await task.sourceLocation)
-      .transform(UTF8.decoder).join();
-    log.trace("Source acquired");
+    gae_utils.CloudStorageLocation sourceLocation = await task.sourceLocation;
+    if (lastSeenMd5 != null && sourceLocation.md5 == lastSeenMd5) {
+      log.trace("Source cache hit: $lastSeenMd5");
+      if (cachedSource == null) {
+        throw "Invariant check failed: Cached key matched but source was null";
+      }
+
+      sourceJSON = cachedSource;
+    } else {
+      sourceJSON = await
+        gae_utils.CloudStorage.getFileContentsByLocation(sourceLocation)
+            .transform(UTF8.decoder).join();
+        lastSeenMd5 = sourceLocation.md5;
+        cachedSource = sourceJSON;
+        log.trace("Cache miss: Source acquired $lastSeenMd5");
+    }
 
     var sourceMap = JSON.decode(sourceJSON);
     _ensureSourceIsInstalled(sourceMap);

@@ -11,7 +11,7 @@ class VersionMapper extends Mapper {
   @override
   map(String ln) {
     Map sessionInfo = parseSessionInfo(null, ln);
-    return [sessionInfo[CLIENT_START_DATE], sessionInfo[SDK_VERSION]];
+    addResult(sessionInfo[CLIENT_START_DATE], sessionInfo[SDK_VERSION]);
   }
 }
 

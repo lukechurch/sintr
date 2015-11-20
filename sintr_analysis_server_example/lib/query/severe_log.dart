@@ -12,18 +12,18 @@ const GET_CONTENTS_FAILED_PREFIX =
 const SEVERE_LOG = 'SevereLog';
 
 /// Add an extraction result to the overall [results]
-/// where [extracted] is produced by [SessionLdapMapper].
+/// where [extracted] is produced by [SevereLogMapper].
 final severeLogReducer = (String sdkVersion, List logData, Map results) {
   // Extract log data
   var sessionId = logData[0];
+  var eventTime = new DateTime.fromMillisecondsSinceEpoch(logData[1]);
+  var eventDate = "${eventTime.year}-${eventTime.month}-${eventTime.day}";
 
   // Extract current results
-  Map sdkResults = results.putIfAbsent(sdkVersion, () => {});
-  Map sessionCounts = sdkResults.putIfAbsent('sessions', () => {});
-  sessionCounts.putIfAbsent(sessionId, () => 0);
-  ++sessionCounts[sessionId];
-  sdkResults['totalSessions'] =
-      sessionCounts.values.fold(0, (c1, c2) => c1 + c2);
+  Map dateResults = results.putIfAbsent(eventDate, () => {});
+  Map sdkResults = dateResults.putIfAbsent(sdkVersion, () => {});
+  sdkResults.putIfAbsent(sessionId, () => 0);
+  ++sdkResults[sessionId];
 
   // Update current results
   return results;

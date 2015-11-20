@@ -5,6 +5,8 @@
 library sintr_common.task_utils;
 
 import 'dart:async';
+import 'package:crypto/crypto.dart';
+
 import 'package:gcloud/db.dart' as db;
 import 'package:gcloud/service_scope.dart' as ss;
 import 'package:gcloud/src/datastore_impl.dart' as datastore_impl;
@@ -14,6 +16,8 @@ import 'package:sintr_common/logging_utils.dart' as log;
 import 'package:sintr_common/tasks.dart' as tasks;
 import "package:sintr_common/gae_utils.dart" as gae_utils;
 import 'package:gcloud/storage.dart' as storage;
+
+const SOURCE_NAME = "test_worker.json";
 
 // TODO: Migrate the parameters of this file to the configuation common lib
 
@@ -29,19 +33,13 @@ Future createTasks(String JobName, String inputBucketName,
   var datastoreDB = new db.DatastoreDB(datastore);
   var cloudstore = new storage.Storage(client, projectId);
 
-  log.info("Setup done");
+  log.trace("Setup done");
 
-  ss.fork(() async {
+  await ss.fork(() async {
     db.registerDbService(datastoreDB);
 
-    Set<String> existingObjectPaths = new Set<String>();
-    existingObjectPaths.addAll(await cloudstore
-        .bucket(resultsBucketName)
-        .list()
-        .map((entity) => entity.name)
-        .toList());
-
-    log.info("Existing results listed");
+    Set<String> existingObjectPaths = await gae_utils.listBucket(resultsBucketName);
+    log.trace("Existing results listed: ${existingObjectPaths.length}");
 
     tasks.TaskController taskController = new tasks.TaskController(JobName);
 
@@ -66,6 +64,11 @@ Future createTasks(String JobName, String inputBucketName,
     }
 
     bool ok = false;
+    
+    List<int> md5Bytes =
+      (await cloudstore.bucket(sourceBucketName).info(SOURCE_NAME)).md5Hash;
+    String base64Md5 = BASE64.encode(md5Bytes);
+
     // Dumb retry loop
     for (int tryCount = 0; tryCount < 3; tryCount++) {
       try {
@@ -74,7 +77,7 @@ Future createTasks(String JobName, String inputBucketName,
             taskList,
             // Source locations
             new gae_utils.CloudStorageLocation(
-                sourceBucketName, "test_worker.json"),
+                sourceBucketName, SOURCE_NAME, base64Md5),
 
             // results
             resultsBucketName);
@@ -88,6 +91,6 @@ Future createTasks(String JobName, String inputBucketName,
 
     if (!ok) throw "Create tasks failed";
 
-    log.info("Tasks created");
+    log.trace("Tasks created");
   });
 }

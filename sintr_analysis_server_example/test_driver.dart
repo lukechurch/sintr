@@ -55,9 +55,7 @@ main(List<String> args) async {
         print("Error reading line\n${trim300(e.toString())}\n$s");
       })) {
         mapper.map(logEntry);
-        if (mapper.isMapStopped) {
-          break;
-        }
+        if (mapper.isMapStopped) break;
       }
       mapper.cleanup();
 

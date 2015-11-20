@@ -28,7 +28,7 @@ Future main(List<String> args, SendPort sendPort) async {
 }
 
 Future<String> _protectedHandle(String msg) async {
-  try {
+  return runZoned(() async {
     var inputData = JSON.decode(msg);
     String bucketName = inputData[0];
     String objectPath = inputData[1];
@@ -64,7 +64,7 @@ Future<String> _protectedHandle(String msg) async {
     String guessedPRIPath = pathComponents.join("/");
 
     var sessionInfo;
-    processFile(client, projectName, bucketName, guessedPRIPath, (String logEntry) {
+    await processFile(client, projectName, bucketName, guessedPRIPath, (String logEntry) {
       sessionInfo = parseSessionInfo(sessionId, logEntry);
       throw new StopProcessingFile();
     }, (ex, st) {
@@ -84,7 +84,7 @@ Future<String> _protectedHandle(String msg) async {
     await mapper.init(sessionInfo, (String key, value) {
       results.add([key, value]);
     });
-    processFile(client, projectName, bucketName, objectPath, (String logEntry) {
+    await processFile(client, projectName, bucketName, objectPath, (String logEntry) {
       lines++;
       mapper.map(logEntry);
       if (mapper.isMapStopped) throw new StopProcessingFile();
@@ -99,12 +99,13 @@ Future<String> _protectedHandle(String msg) async {
       "failureCount": failureCount,
       "errItems": errItems,
       "linesProcessed": lines,
-      "input": "gs://$bucketName/$objectPath"
+      "input": "gs://$bucketName/$objectPath",
+      "mapperStoppedBeforeEnd": mapper.isMapStopped
     });
-  } catch (e, st) {
+  }, onError: (e, st) {
     if (client != null) client.close();
     log.info("Message proc erred. $e \n $st \n");
     log.debug("Input data: $msg");
     return JSON.encode({"error": "${e}", "stackTrace": "${st}"});
-  }
+  });
 }

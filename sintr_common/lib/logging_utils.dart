@@ -23,7 +23,7 @@ setupLogging() {
 _setupLocalLogging() {
   // Setup the logging
   logging.hierarchicalLoggingEnabled = false;
-  logging.Logger.root.level = logging.Level.FINE;
+  logging.Logger.root.level = logging.Level.FINER;
   logging.Logger.root.onRecord.listen((logging.LogRecord rec) {
     print('${rec.level.name}: ${rec.time}: ${rec.message}');
   });

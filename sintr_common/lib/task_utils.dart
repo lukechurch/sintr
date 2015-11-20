@@ -33,19 +33,13 @@ Future createTasks(String JobName, String inputBucketName,
   var datastoreDB = new db.DatastoreDB(datastore);
   var cloudstore = new storage.Storage(client, projectId);
 
-  log.info("Setup done");
+  log.trace("Setup done");
 
-  ss.fork(() async {
+  await ss.fork(() async {
     db.registerDbService(datastoreDB);
 
-    Set<String> existingObjectPaths = new Set<String>();
-    existingObjectPaths.addAll(await cloudstore
-        .bucket(resultsBucketName)
-        .list()
-        .map((entity) => entity.name)
-        .toList());
-
-    log.info("Existing results listed");
+    Set<String> existingObjectPaths = await gae_utils.listBucket(resultsBucketName);
+    log.trace("Existing results listed: ${existingObjectPaths.length}");
 
     tasks.TaskController taskController = new tasks.TaskController(JobName);
 
@@ -97,6 +91,6 @@ Future createTasks(String JobName, String inputBucketName,
 
     if (!ok) throw "Create tasks failed";
 
-    log.info("Tasks created");
+    log.trace("Tasks created");
   });
 }

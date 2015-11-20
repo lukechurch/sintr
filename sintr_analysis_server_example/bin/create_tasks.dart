@@ -6,11 +6,12 @@ import 'dart:io' as io;
 import 'package:gcloud/storage.dart' as storage;
 import 'package:sintr_common/auth.dart';
 import "package:sintr_common/configuration.dart" as config;
-import 'package:sintr_common/logging_utils.dart';
+import 'package:sintr_common/logging_utils.dart' as log;
 import 'package:sintr_common/task_utils.dart' as task_utils;
+import 'package:sintr_common/gae_utils.dart';
 
 main(List<String> args) async {
-  setupLogging();
+  log.setupLogging();
 
   if (args.length != 0) {
     print("Create tasks for workers");
@@ -25,16 +26,23 @@ main(List<String> args) async {
       cryptoTokensLocation:
           "${config.userHomePath}/Communications/CryptoTokens");
 
+  log.trace("About to get client");
+
   var client = await getAuthedClient();
 
   var stor = await new storage.Storage(client, projectId);
-  List<storage.BucketEntry> entries = await stor
-      .bucket(inputDataBucket)
-      .list(prefix: "PRI") //prefix: "analysis-server-sessions")
-      .toList();
+  // List<storage.BucketEntry> entries = await stor
+  //     .bucket(inputDataBucket)
+  //     .list() //prefix: "PRI") //prefix: "analysis-server-sessions")
+  //     .toList();
 
-  List<String> objectPaths = entries.map((be) => be.name).toList();
-  await task_utils.createTasks("versionMetrics", inputDataBucket, objectPaths,
+  // trace("Entries listed");
+
+  var bucketSet = await listBucket(stor.bucket(inputDataBucket));
+  var objectPaths = bucketSet.toList();
+  objectPaths = objectPaths.where((p) => !p.contains("PRI")).toList();
+
+  await task_utils.createTasks("severeLogs", inputDataBucket, objectPaths,
       "liftoff-dev-results", "liftoff-dev-source");
   print("${objectPaths.length} tasks created");
 }

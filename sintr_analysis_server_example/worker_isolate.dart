@@ -53,8 +53,8 @@ Future<String> _protectedHandle(String msg) async {
 
     // Cloud connect
     config.configuration = new config.Configuration(projectName,
-      cryptoTokensLocation:
-          "${config.userHomePath}/Communications/CryptoTokens");
+        cryptoTokensLocation:
+            "${config.userHomePath}/Communications/CryptoTokens");
     client = await auth.getAuthedClient();
 
     // Get the session info
@@ -64,9 +64,11 @@ Future<String> _protectedHandle(String msg) async {
     String guessedPRIPath = pathComponents.join("/");
 
     var sessionInfo;
-    await processFile(client, projectName, bucketName, guessedPRIPath, (String logEntry) {
-      sessionInfo = parseSessionInfo(sessionId, logEntry);
-      throw new StopProcessingFile();
+    await processFile(client, projectName, bucketName, guessedPRIPath,
+        (String logEntry) {
+      if (sessionInfo == null) {
+        sessionInfo = parseSessionInfo(sessionId, logEntry);
+      }
     }, (ex, st) {
       errItems.add("Session info erred. ${trim300(ex.toString())} \n $st \n");
     });
@@ -84,7 +86,8 @@ Future<String> _protectedHandle(String msg) async {
     await mapper.init(sessionInfo, (String key, value) {
       results.add([key, value]);
     });
-    await processFile(client, projectName, bucketName, objectPath, (String logEntry) {
+    await processFile(client, projectName, bucketName, objectPath,
+        (String logEntry) {
       lines++;
       mapper.map(logEntry);
       if (mapper.isMapStopped) throw new StopProcessingFile();

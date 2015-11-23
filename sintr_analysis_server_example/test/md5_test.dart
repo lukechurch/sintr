@@ -22,7 +22,7 @@ const C = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789~-_\n';
 /// of 1 Meg blocks of random characters, then calculate the MD5 hash
 /// of that file using Dart crypto and OpenSSL.
 Future compareMD5(int numBlocks) async {
-  print('MD5 comparison - $numBlocks Meg file');
+  print('MD5 comparison - $numBlocks MB file');
 
   // Setup
   var tmpPath = join(Directory.systemTemp.path, 'dart_md5_test_$numBlocks');

@@ -28,7 +28,7 @@ Future main(List<String> args, SendPort sendPort) async {
 }
 
 Future<String> _protectedHandle(String msg) async {
-  return runZoned(() async {
+  try {
     var inputData = JSON.decode(msg);
     String bucketName = inputData[0];
     String objectPath = inputData[1];
@@ -105,10 +105,10 @@ Future<String> _protectedHandle(String msg) async {
       "input": "gs://$bucketName/$objectPath",
       "mapperStoppedBeforeEnd": mapper.isMapStopped
     });
-  }, onError: (e, st) {
+  } catch (e, st) {
     if (client != null) client.close();
     log.info("Message proc erred. $e \n $st \n");
     log.debug("Input data: $msg");
     return JSON.encode({"error": "${e}", "stackTrace": "${st}"});
-  });
+  }
 }

@@ -238,6 +238,9 @@ class TaskController {
   // allocated. Returns null if there are no available tasks needing further
   // work
   Future<Task> getNextReadyTask() async {
+    const int MAX_OWNERSHIP_ATTEMPTS = 120;
+    const Duration OWNERNSHIP_ATTEMPT_DELAY = const Duration (seconds: 1);
+
     log.trace("getNextReadyTask() started");
 
     // TODO: Implement an error management wrapper so this is error tolerant
@@ -259,14 +262,23 @@ class TaskController {
       Task task = new Task._fromTaskModel(model);
       await task._pushBackingStore();
 
+      int takeOwnershipAttemptCount = 0;
+
       // Test to see if we got the task
       while (true) {
+
+        if (takeOwnershipAttemptCount++ > MAX_OWNERSHIP_ATTEMPTS) {
+          log.alert("WARNING: Too many polls needed to determine task ownership:"
+            " $takeOwnershipAttemptCount");
+          break;
+        }
         await task._pullBackingStore();
 
         if (task.backingstore.ownerID == ownerID) {
           return task;
         } else if (task.backingstore.ownerID == _UNALLOCATED_OWNER) {
           // Datastore isn't consistent yet sync hasn't completed yet
+          await new Future.delayed(OWNERNSHIP_ATTEMPT_DELAY);
           continue;
         }
         // Someone else got this task

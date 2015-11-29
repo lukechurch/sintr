@@ -2,6 +2,7 @@
 # Halt on the first error
 set -e
 
+JOB_NAME=$1
 CLUSTER_SIZE=5
 
 echo "Deleting tasks"
@@ -19,7 +20,7 @@ echo "Deploying cluster"
 ./tools/scripts/deploy_worker_cluster.sh $CLUSTER_SIZE &
 
 echo "Creating tasks"
-dart sintr_analysis_server_example/bin/create_tasks.dart
+dart sintr_analysis_server_example/bin/create_tasks.dart true $1
 
 echo "Starting monitoring loop"
 dart sintr_analysis_server_example/bin/query.dart --loop

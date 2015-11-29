@@ -13,9 +13,42 @@ import 'package:sintr_common/gae_utils.dart';
 main(List<String> args) async {
   log.setupLogging();
 
-  if (args.length != 0) {
+  String filterString = null;
+  bool include = true;
+
+  // TODO(lukechurch): This is getting silly. args package.
+  if (args.length < 2) {
     print("Create tasks for workers");
+    print("Usage: dart create_tasks.dart <incremental> <job_name> [source_filter]");
+    print("\tsource_filter: Alpha-numeric string, inverted if starting with !");
+    print("\tExamples: PRI or !PRI");
     io.exit(1);
+  }
+
+  String incrementalString = args[0];
+  bool incremental = null;
+
+  switch (incrementalString.toLowerCase()) {
+    case "false":
+      incremental = false;
+      break;
+    case "true":
+      incremental = true;
+      break;
+    default:
+      print("Unknown incremental string: $incrementalString");
+      io.exit(1);
+  }
+
+  String jobName = args[1];
+
+  if (args.length == 3) {
+    filterString = args[2];
+
+    if (filterString.startsWith("!")) {
+      include = false;
+      filterString = filterString.substring(1);
+    }
   }
 
   String projectId = "liftoff-dev";
@@ -31,18 +64,18 @@ main(List<String> args) async {
   var client = await getAuthedClient();
 
   var stor = await new storage.Storage(client, projectId);
-  // List<storage.BucketEntry> entries = await stor
-  //     .bucket(inputDataBucket)
-  //     .list() //prefix: "PRI") //prefix: "analysis-server-sessions")
-  //     .toList();
-
-  // trace("Entries listed");
 
   var bucketSet = await listBucket(stor.bucket(inputDataBucket));
   var objectPaths = bucketSet.toList();
-  objectPaths = objectPaths.where((p) => !p.contains("PRI")).toList();
 
-  await task_utils.createTasks("severeLogs", inputDataBucket, objectPaths,
-      "liftoff-dev-results", "liftoff-dev-source");
-  print("${objectPaths.length} tasks created");
+  if (filterString != null) {
+    if (include) {
+      objectPaths = objectPaths.where((p) => p.contains(filterString)).toList();
+    } else {
+      objectPaths = objectPaths.where((p) => !p.contains(filterString)).toList();
+    }
+  }
+
+  await task_utils.createTasks(jobName, inputDataBucket, objectPaths,
+      "liftoff-dev-results", "liftoff-dev-source", incremental: incremental);
 }

@@ -18,6 +18,7 @@ import "package:sintr_common/gae_utils.dart" as gae_utils;
 import 'package:gcloud/storage.dart' as storage;
 
 const SOURCE_NAME = "test_worker.json";
+const VERBOSE_LOGGING = true;
 
 // TODO: Migrate the parameters of this file to the configuation common lib
 
@@ -57,6 +58,9 @@ Future createTasks(String JobName, String inputBucketName,
         var outputObjectPath =
             taskController.outputPathFromInput(inputLocation);
         if (existingObjectPaths.contains(outputObjectPath)) {
+          if (VERBOSE_LOGGING) {
+            log.info("Incremental: Skipping task for $outputObjectPath");
+          }
           continue;
         }
       }
@@ -65,10 +69,12 @@ Future createTasks(String JobName, String inputBucketName,
     }
 
     bool ok = false;
-    
+
     List<int> md5Bytes =
       (await cloudstore.bucket(sourceBucketName).info(SOURCE_NAME)).md5Hash;
     String base64Md5 = BASE64.encode(md5Bytes);
+
+    log.info("About to create ${taskList.length} tasks");
 
     // Dumb retry loop
     for (int tryCount = 0; tryCount < 3; tryCount++) {

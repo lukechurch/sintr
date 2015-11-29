@@ -38,7 +38,8 @@ Future createTasks(String JobName, String inputBucketName,
   await ss.fork(() async {
     db.registerDbService(datastoreDB);
 
-    Set<String> existingObjectPaths = await gae_utils.listBucket(resultsBucketName);
+    Set<String> existingObjectPaths = await gae_utils.listBucket(
+      await cloudstore.bucket(resultsBucketName));
     log.trace("Existing results listed: ${existingObjectPaths.length}");
 
     tasks.TaskController taskController = new tasks.TaskController(JobName);

@@ -16,11 +16,11 @@ class VersionMapper extends Mapper {
 }
 
 Map versionReducer(String key, List values) {
-  var results = {};
+  var versionCounts = {};
 
   for (var v in values) {
-    results.putIfAbsent(v, () => 0);
-    results[v]++;
+    versionCounts.putIfAbsent(v, () => 0);
+    versionCounts[v]++;
   }
-  return results;
+  return {key: versionCounts};
 }

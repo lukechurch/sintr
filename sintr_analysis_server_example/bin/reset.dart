@@ -68,7 +68,7 @@ main(List<String> args) async {
 
   log.info("Setup done");
 
-  ss.fork(() async {
+  await ss.fork(() async {
     db.registerDbService(datastoreDB);
 
     await taskController.deleteAllTasks();

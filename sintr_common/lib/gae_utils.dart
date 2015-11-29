@@ -53,11 +53,11 @@ class CloudStorageLocation {
   CloudStorageLocation(this.bucketName, this.objectPath, [this.md5]);
 }
 
-Future<Set<String>> listBucket(storage.Bucket bucket) async {
+Future<Set<String>> listBucket(storage.Bucket bucket, {String prefix}) async {
   const PAGE_SIZE = 2000;
 
   Set<String> names = new Set<String>();
-  storage.Page page = await bucket.page(pageSize: PAGE_SIZE);
+  storage.Page page = await bucket.page(prefix: prefix, pageSize: PAGE_SIZE);
 
   while (!page.isLast) {
     names.addAll(page.items.map((x) => x.name));

@@ -4,8 +4,8 @@ set -e
 
 CLUSTER_SIZE=5
 
-echo "Reseting"
-dart sintr_analysis_server_example/bin/reset.dart --force
+echo "Deleting tasks"
+dart sintr_analysis_server_example/bin/delete_all_tasks.dart
 
 echo "Deploying Sintr"
 ./tools/scripts/deploy_image.sh

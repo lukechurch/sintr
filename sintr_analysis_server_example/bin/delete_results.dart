@@ -19,7 +19,7 @@ main(List<String> args) async {
 
   if (args.length != 1) {
     print("Clear delete all previous results for a given job");
-    print("Usage dart job_name");
+    print("Usage dart delete_results.dart job_name");
     io.exit(1);
   }
 

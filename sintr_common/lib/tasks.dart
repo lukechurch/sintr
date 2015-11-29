@@ -80,7 +80,7 @@ class Task {
     if (backingstore == null) return null;
 
     return new CloudStorageLocation(backingstore.inputCloudStorageBucketName,
-        backingstore.inputCloudStorageObjectPath);
+        backingstore.inputCloudStorageObjectPath, backingstore.inputCloudStorageMd5);
   }
 
   Future<CloudStorageLocation> get resultLocation async {
@@ -90,7 +90,7 @@ class Task {
     if (backingstore == null) return null;
 
     return new CloudStorageLocation(backingstore.resultCloudStorageBucketName,
-        backingstore.resultCloudStorageObjectPath);
+        backingstore.resultCloudStorageObjectPath, backingstore.resultCloudStorageMd5);
   }
 
   Future<CloudStorageLocation> get sourceLocation async {
@@ -100,7 +100,7 @@ class Task {
     if (backingstore == null) return null;
 
     return new CloudStorageLocation(backingstore.sourceCloudStorageBucketName,
-        backingstore.sourceCloudStorageObjectPath);
+        backingstore.sourceCloudStorageObjectPath, backingstore.sourceCloudStorageMd5);
   }
 
   /// Record that this task has made progress
@@ -165,16 +165,25 @@ class _TaskModel extends db.Model {
   String inputCloudStorageObjectPath;
 
   @db.StringProperty()
+  String inputCloudStorageMd5;
+
+  @db.StringProperty()
   String resultCloudStorageBucketName;
 
   @db.StringProperty()
   String resultCloudStorageObjectPath;
 
   @db.StringProperty()
+  String resultCloudStorageMd5;
+
+  @db.StringProperty()
   String sourceCloudStorageBucketName;
 
   @db.StringProperty()
   String sourceCloudStorageObjectPath;
+
+  @db.StringProperty()
+  String sourceCloudStorageMd5;
 
   @db.StringProperty()
   String ownerID;
@@ -193,8 +202,11 @@ class _TaskModel extends db.Model {
     ownerID = _UNALLOCATED_OWNER;
     inputCloudStorageBucketName = inputLocation.bucketName;
     inputCloudStorageObjectPath = inputLocation.objectPath;
+    inputCloudStorageMd5 = inputLocation.md5;
+
     sourceCloudStorageBucketName = sourceLocation.bucketName;
     sourceCloudStorageObjectPath = sourceLocation.objectPath;
+    sourceCloudStorageMd5 = sourceLocation.md5;
   }
 }
 

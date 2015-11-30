@@ -13,7 +13,7 @@ import 'package:sintr_common/logging_utils.dart';
 import 'package:sintr_common/logging_utils.dart' as log;
 import 'package:sintr_common/tasks.dart' as tasks;
 
-const LOOP_DELAY = 60;
+const LOOP_DELAY = const Duration(seconds: 300);
 
 main(List<String> args) async {
   setupLogging();
@@ -68,7 +68,7 @@ main(List<String> args) async {
 
       if (!readyTasksLeft) break;
 
-      await new Future.delayed(new Duration(seconds: LOOP_DELAY));
+      await new Future.delayed(LOOP_DELAY);
     } while (loop);
 
   });

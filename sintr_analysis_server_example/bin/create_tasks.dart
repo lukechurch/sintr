@@ -10,6 +10,8 @@ import 'package:sintr_common/logging_utils.dart' as log;
 import 'package:sintr_common/task_utils.dart' as task_utils;
 import 'package:sintr_common/gae_utils.dart';
 
+const VERBOSE_LOGGING = false;
+
 main(List<String> args) async {
   log.setupLogging();
 
@@ -49,6 +51,12 @@ main(List<String> args) async {
       include = false;
       filterString = filterString.substring(1);
     }
+
+    if (include) {
+      log.info("Including $filterString");
+    } else {
+      log.info("Excluding $filterString");
+    }
   }
 
   String projectId = "liftoff-dev";
@@ -73,6 +81,13 @@ main(List<String> args) async {
       objectPaths = objectPaths.where((p) => p.contains(filterString)).toList();
     } else {
       objectPaths = objectPaths.where((p) => !p.contains(filterString)).toList();
+    }
+  }
+
+  if (VERBOSE_LOGGING) {
+    print("Input Paths");
+    for (var path in objectPaths) {
+      print (path);
     }
   }
 

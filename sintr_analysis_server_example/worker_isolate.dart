@@ -12,6 +12,9 @@ import 'package:sintr_common/logging_utils.dart' as log;
 import 'package:sintr_worker_lib/bucket_util.dart';
 import 'package:sintr_worker_lib/instrumentation_transformer.dart';
 import 'package:sintr_worker_lib/query/completion_metrics.dart';
+import 'package:sintr_worker_lib/query/versions.dart';
+import 'package:sintr_worker_lib/query/severe_log.dart';
+
 import 'package:sintr_worker_lib/session_info.dart';
 
 const projectName = "liftoff-dev";
@@ -38,18 +41,8 @@ Future<String> _protectedHandle(String msg) async {
     int lines = 0;
 
     // Initialize query specific objects
-    var mapper = new CompletionMapper();
-
-    // Skip PRI files
-    if (objectPath.contains("PRI")) {
-      return JSON.encode({
-        "result": [],
-        "failureCount": 0,
-        "errItems": [],
-        "linesProcessed": 0,
-        "input": "gs://$bucketName/$objectPath"
-      });
-    }
+    var mapper = new SevereLogMapper();
+    const needsSessionInfo = true;
 
     // Cloud connect
     config.configuration = new config.Configuration(projectName,
@@ -57,30 +50,37 @@ Future<String> _protectedHandle(String msg) async {
             "${config.userHomePath}/Communications/CryptoTokens");
     client = await auth.getAuthedClient();
 
-    // Get the session info
-    var pathComponents = objectPath.split("/");
-    var sessionId = pathComponents.removeLast();
-    pathComponents.add("PRI${sessionId}");
-    String guessedPRIPath = pathComponents.join("/");
+    var sessionInfo = null;
+    if (needsSessionInfo) {
 
-    var sessionInfo;
-    await processFile(client, projectName, bucketName, guessedPRIPath,
-        (String logEntry) {
-      if (sessionInfo == null) {
-        sessionInfo = parseSessionInfo(sessionId, logEntry);
-      }
-    }, (ex, st) {
-      errItems.add("Session info erred. ${trim300(ex.toString())} \n $st \n");
-    });
-    if (sessionInfo == null) {
-      return JSON.encode({
-        "result": [],
-        "failureCount": 1,
-        "errItems": errItems,
-        "linesProcessed": 0,
-        "input": "gs://$bucketName/$objectPath"
+      // Get the session info
+      var pathComponents = objectPath.split("/");
+      var sessionId = pathComponents.removeLast();
+      pathComponents.add("PRI${sessionId}");
+      String guessedPRIPath = pathComponents.join("/");
+
+      await processFile(client, projectName, bucketName, guessedPRIPath,
+          (String logEntry) {
+        if (sessionInfo == null) {
+          sessionInfo = parseSessionInfo(sessionId, logEntry);
+          print ("SessionInfo acquired: $sessionInfo");
+
+        }
+      }, (ex, st) {
+        errItems.add("Session info erred. ${trim300(ex.toString())} \n $st \n");
       });
+      if (sessionInfo == null) {
+        return JSON.encode({
+          "result": [],
+          "failureCount": 1,
+          "errItems": errItems,
+          "linesProcessed": 0,
+          "input": "gs://$bucketName/$objectPath"
+        });
+      }
     }
+
+    print ("SessionInfo before init: $sessionInfo");
 
     // Extraction
     await mapper.init(sessionInfo, (String key, value) {

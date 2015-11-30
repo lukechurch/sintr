@@ -6,9 +6,6 @@ library sintr_worker_lib.query.failures;
 
 import 'package:sintr_worker_lib/instrumentation_query.dart';
 
-const GET_CONTENTS_FAILED = 'GetContentsFailed';
-const GET_CONTENTS_FAILED_PREFIX =
-    'Internal error while performing the task: get contents of ';
 const SEVERE_LOG = 'SevereLog';
 
 /// Add an extraction result to the overall [results]
@@ -28,41 +25,6 @@ final severeLogReducer = (String sdkVersion, List logData, Map results) {
   // Update current results
   return results;
 };
-
-/// [GetContentsFailedMapper] processes session log messages
-/// and extracts severe log messages starting with
-/// 'Internal error while performing the task: get contents of '.
-///
-/// Results keys are [sdkVersion] and values are a list containing
-///
-/// * [sessionId]
-/// * failure time (ms since epoch)
-/// * failure type (GET_CONTENTS_FAILED)
-/// * uri
-///
-class GetContentsFailedMapper extends _AbstractFailureMapper {
-  @override
-  void mapLogMessage(int time, String msgType, String logMessageText) {
-    if (msgType == 'Log') {
-      if (logMessageText.startsWith('SEVERE:')) {
-        _processSevereLogMsg(time, logMessageText);
-      }
-    }
-  }
-
-  /// Extract exceptions and failures from SEVERE log messages
-  void _processSevereLogMsg(int time, String logMessageText) {
-    var start = logMessageText.indexOf(':', 7);
-    var msgText = logMessageText.substring(start + 1).replaceAll('::', ':');
-
-    // Record getContent failed messages
-    if (msgText.startsWith(GET_CONTENTS_FAILED_PREFIX)) {
-      var uri = msgText.substring(GET_CONTENTS_FAILED_PREFIX.length);
-      _recordFailure(time, GET_CONTENTS_FAILED, uri);
-      return;
-    }
-  }
-}
 
 /// [SevereLogMapper] processes session log messages
 /// and extracts severe log messages that do NOT start with
@@ -89,17 +51,44 @@ class SevereLogMapper extends _AbstractFailureMapper {
   void _processSevereLogMsg(int time, String logMessageText) {
     var start = logMessageText.indexOf(':', 7);
     var msgText = logMessageText.substring(start + 1).replaceAll('::', ':');
-
-    // Record all except getContent failed messages
-    if (!msgText.startsWith(GET_CONTENTS_FAILED_PREFIX)) {
-      _recordFailure(time, SEVERE_LOG, msgText);
-      return;
-    }
+    _recordFailure(time, SEVERE_LOG, msgText);
   }
 }
 
 abstract class _AbstractFailureMapper extends InstrumentationMapper {
-  void _recordFailure(int time, String resultType, [resultData]) {
-    addResult(sdkVersion, [sessionId, time, resultType, resultData]);
+  static const MAX_TIMES_TO_REPORT = 1000 * 1000;
+
+  // type -> data -> times
+  Map<String, Map<String, List<int>>> typeResultsTimes = {};
+  Map<String, Map<String, int>> typeResultsCounts = {};
+
+  void _recordFailure(int time, String resultType, String resultData) {
+    String data = resultData.split('\n')[0];
+
+    typeResultsTimes.putIfAbsent(resultType, () => {});
+    typeResultsCounts.putIfAbsent(resultType, () => {});
+
+    Map<String, List<int>> resultTimes = typeResultsTimes[resultType];
+    Map<String, int> resultCounts = typeResultsCounts[resultType];
+
+    resultTimes.putIfAbsent(data, () => []);
+    resultCounts.putIfAbsent(data, () => 0);
+
+    int count = resultCounts[data]++;
+    if (count < MAX_TIMES_TO_REPORT) {
+      resultTimes[data].add(time);
+    }
+  }
+
+  @override
+  void cleanup() {
+    for (String typeResult in typeResultsTimes.keys) {
+      var times = typeResultsTimes[typeResult];
+      var counts = typeResultsCounts[typeResult];
+
+      addResult(sdkVersion, [typeResult, {
+        "times": times,
+        "counts:": counts}]);
+    }
   }
 }

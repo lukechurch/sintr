@@ -32,7 +32,7 @@ Future processFile(
       .timeout(_TIMEOUT)
       .transform(UTF8.decoder)
       .transform(new LineSplitter())
-      .transform(new LogItemTransformer())
+      .transform(new LogItemTransformer(allowNonSequentialMsgs: true))
       .handleError(onError)
       .listen(null);
 

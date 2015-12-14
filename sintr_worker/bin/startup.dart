@@ -21,6 +21,7 @@ import 'package:sintr_common/tasks.dart' as tasks;
 
 String workerFolder;
 const START_NAME = "worker_isolate.dart";
+const DELAY_BETWEEN_TASK_POLLS = const Duration(seconds: 60);
 
 // Worker properties.
 SendPort sendPort;
@@ -30,6 +31,9 @@ Isolate isolate;
 StreamController resultsController;
 Stream resultsStream;
 String shaCodeRunningInIsolate;
+
+String lastSeenMd5 = null;
+String cachedSourceJSON = null;
 
 // var dbService;
 
@@ -73,7 +77,7 @@ start(String projectName, String jobName, String _workerFolder) async {
 
                if (task == null) {
                  log.info("Got null next ready task, sleeping");
-                 await new Future.delayed(new Duration(seconds: 5));
+                 await new Future.delayed(DELAY_BETWEEN_TASK_POLLS);
                  continue;
                }
 
@@ -81,14 +85,11 @@ start(String projectName, String jobName, String _workerFolder) async {
                await _handleTask(task);
                log.perf("Task $task completed", sw.elapsedMilliseconds);
             }
-
       });
 }
 
 _handleTask(tasks.Task task) async {
   log.trace("Starting task $task");
-  String lastSeenMd5 = null;
-  String cachedSource = null;
 
   Stopwatch sw = new Stopwatch()..start();
   try {
@@ -101,19 +102,21 @@ _handleTask(tasks.Task task) async {
 
     gae_utils.CloudStorageLocation sourceLocation = await task.sourceLocation;
     if (lastSeenMd5 != null && sourceLocation.md5 == lastSeenMd5) {
-      log.trace("Source cache hit: $lastSeenMd5");
-      if (cachedSource == null) {
+      log.trace("Source JSON cache hit: $lastSeenMd5");
+      if (cachedSourceJSON == null) {
         throw "Invariant check failed: Cached key matched but source was null";
       }
 
-      sourceJSON = cachedSource;
+      sourceJSON = cachedSourceJSON;
     } else {
+      var oldMd5 = lastSeenMd5;
+
       sourceJSON = await
         gae_utils.CloudStorage.getFileContentsByLocation(sourceLocation)
             .transform(UTF8.decoder).join();
         lastSeenMd5 = sourceLocation.md5;
-        cachedSource = sourceJSON;
-        log.trace("Cache miss: Source acquired $lastSeenMd5");
+        cachedSourceJSON = sourceJSON;
+        log.trace("Cache miss (was: $oldMd5): Source JSON acquired $lastSeenMd5");
     }
 
     var sourceMap = JSON.decode(sourceJSON);

@@ -13,6 +13,8 @@ import 'package:uuid/uuid.dart';
 
 const int DATASTORE_TRANSACTION_SIZE = 250;
 const String _UNALLOCATED_OWNER = "";
+const Duration BACKING_STORE_STALE_POLICY = const Duration(seconds: 120);
+
 
 db.DatastoreDB _db = db.dbService;
 
@@ -21,13 +23,34 @@ class Task {
   // Location of the object in the datastore
   final db.Key _objectKey;
   _TaskModel backingstore;
+  Stopwatch backingStoreAge;
 
   toString() => uniqueName;
 
   String get uniqueName => "${_objectKey?.id}";
 
+  /// Force the infrastructure to resync the backing store for this object
+  /// This will incur a datastore read
+  Future forceReadSync() => _pullBackingStore();
+
+  /// Sync the backing store if it is empty of if the policy determines
+  /// it is stale
+  Future _policyBasedSyncBackingStore() async {
+    if (backingstore == null) {
+      log.trace("BackingStore was null, syncing");
+      await _pullBackingStore();
+    } else if (backingStoreAge != null
+      && backingStoreAge.elapsed > BACKING_STORE_STALE_POLICY) {
+        log.trace("BackingStore was stale: ${backingStoreAge.elapsed}, syncing");
+        await _pullBackingStore();
+    } else {
+      log.trace("BackingStore cache used");
+    }
+  }
+
   /// Get the state of the task
-  // The state machine for READY -> ALLOCATED is synchronised
+  /// The state machine for READY -> ALLOCATED is synchronised
+  /// This call requests a resync
   Future<LifecycleState> get state async {
     log.trace("Get state on Task for $_objectKey");
     await _pullBackingStore();
@@ -54,11 +77,12 @@ class Task {
     log.trace("Set state on Task for $_objectKey -> $state : OK");
   }
 
-  // Number of times this task has failed to execute
+  /// Number of times this task has failed to execute
+  /// Policy based syncronisation
   Future<int> get failureCounts async {
     log.trace("Get failureCounts on Task for $_objectKey");
+    await _policyBasedSyncBackingStore();
 
-    await _pullBackingStore();
     return backingstore?.failureCount;
   }
 
@@ -73,30 +97,35 @@ class Task {
   }
 
   //TODO: Generalise these to support multiple data-source strategy
+  /// Policy based syncronisation
   Future<CloudStorageLocation> get inputSource async {
     log.trace("Get inputSource on Task for $_objectKey");
 
-    await _pullBackingStore();
+    await _policyBasedSyncBackingStore();
     if (backingstore == null) return null;
 
     return new CloudStorageLocation(backingstore.inputCloudStorageBucketName,
         backingstore.inputCloudStorageObjectPath, backingstore.inputCloudStorageMd5);
   }
 
+  /// Get the location where the results will be stored
+  /// Policy based syncronisation
   Future<CloudStorageLocation> get resultLocation async {
     log.trace("Get resultLocation on Task for $_objectKey");
 
-    await _pullBackingStore();
+    await _policyBasedSyncBackingStore();
     if (backingstore == null) return null;
 
     return new CloudStorageLocation(backingstore.resultCloudStorageBucketName,
         backingstore.resultCloudStorageObjectPath, backingstore.resultCloudStorageMd5);
   }
 
+  /// Get the location of the source
+  /// Policy syncronised
   Future<CloudStorageLocation> get sourceLocation async {
     log.trace("Get sourceLocation on Task for $_objectKey");
 
-    await _pullBackingStore();
+    await _policyBasedSyncBackingStore();
     if (backingstore == null) return null;
 
     return new CloudStorageLocation(backingstore.sourceCloudStorageBucketName,
@@ -104,6 +133,7 @@ class Task {
   }
 
   /// Record that this task has made progress
+  /// Based effort based synchronisation
   recordProgress() async {
     log.trace("recordProgress on Task for $_objectKey");
     await _pullBackingStore();
@@ -120,6 +150,8 @@ class Task {
 
     List<db.Model> models = await _db.lookup([_objectKey]);
     backingstore = models.first;
+
+    backingStoreAge = new Stopwatch()..start();
 
     log.trace("_pullBackingStore completed, PERF: ${sw.elapsedMilliseconds}");
   }
@@ -253,7 +285,7 @@ class TaskController {
 
     // TODO: Add co-ordination of the job to outside the control scripts
     var query = _db.query(_TaskModel)
-      ..filter("lifecycleState =", READY_STATE);
+      ..filter("lifecycleState =", READY_STATE)..limit(10);
 
     await for (_TaskModel model in query.run()) {
       model.lifecycleState = ALLOCATED_STATE;
@@ -352,6 +384,23 @@ class TaskController {
       i += deleteKeys.length;
     }
     log.info("$i tasks deleted");
+  }
+
+  Future<Map<String, int>> queryTasksReady() async {
+    log.info("Query task ready");
+    // Task -> ready count
+    Map<String, int> readyCounts = {};
+
+    final int READY_STATE = _intFromLifecycle(LifecycleState.READY);
+
+    var query = _db.query(_TaskModel)..filter("lifecycleState =", READY_STATE);
+
+    await for (_TaskModel model in query.run()) {
+      String parentJobName = model.parentJobName;
+      readyCounts.putIfAbsent(parentJobName, () => 0);
+      readyCounts[parentJobName]++;
+    }
+    return readyCounts;
   }
 
   Future<Map<String, Map<int, int>>> queryTaskState() async {

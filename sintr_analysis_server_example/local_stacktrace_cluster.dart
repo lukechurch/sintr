@@ -58,13 +58,14 @@ main(List<String> args) async {
 
       for (String errReport in counts.keys) {
         try {
-          print(errReport);
+          // print(errReport);
 
           String stString =
               errReport.split("message\"::\"")[1].split("\\n\"}}")[0];
 
           st.StackTrace sts =
-              new st.StackTrace.fromAnalysisServerString(stString);
+              new st.StackTrace.fromAnalysisServerString(
+                stString, errReport, 1);
 
           stackTracesByVersion.putIfAbsent(k, () => []);
           stackTracesByVersion[k].add(sts);
@@ -87,10 +88,26 @@ main(List<String> args) async {
     Stopwatch sw = new Stopwatch()..start();
 
     List<cluster.DataItem> dataItems = [];
+    List<st.StackTrace> previouslyAdded = [];
 
-    for (StackTrace stack in stackTracesByVersion[k]) {
-      dataItems.add(new cluster.DataItem(stack, st.StackTrace.distance));
+    for (st.StackTrace stack in stackTracesByVersion[k]) {
+      bool alreadyFound = false;
+      for (st.StackTrace existing in previouslyAdded) {
+        if (stack.equalByStackTraces(existing)) {
+          existing.count++;
+          alreadyFound = true;
+          break;
+        }
+      }
+
+      if (!alreadyFound) {
+        previouslyAdded.add(stack);
+        dataItems.add(new cluster.DataItem(stack, st.StackTrace.distance));
+      }
     }
+
+    log("Unique stacks: ${dataItems.length}");
+
     cluster.KMedoids clusterModel = new cluster.KMedoids(dataItems);
 
     log("Initial cost: ${clusterModel.cost}");

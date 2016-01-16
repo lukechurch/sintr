@@ -10,13 +10,16 @@ import 'package:nectar/distance_measures.dart' as distances;
 class StackTrace {
   List<String> locations;
   String fullMessage;
+  String sessionLocation;
   int count;
 
-  StackTrace(this.locations, [this.fullMessage, this.count]);
+  StackTrace(this.locations,
+      [this.fullMessage, this.count = 1, this.sessionLocation]);
 
   String toString() {
     StringBuffer buffer = new StringBuffer();
     buffer.write("Count: $count\n");
+    buffer.write("Session: $sessionLocation\n");
     buffer.write(locations.join(" "));
     buffer.writeln();
     buffer.write("Original message:\n");
@@ -25,12 +28,16 @@ class StackTrace {
     return buffer.toString();
   }
 
-  StackTrace.fromString(String str, [String fullMessage, int count])
-    : this(str.split('\n').map((f) => f.trim()).toList(), fullMessage, count);
+  StackTrace.fromString(String str,
+      [String fullMessage, int count = 1, String sessionLocation])
+      : this(str.split('\n').map((f) => f.trim()).toList(), fullMessage, count,
+            sessionLocation);
 
-  StackTrace.fromAnalysisServerString(String str, [String fullMessage, int count]) {
+  StackTrace.fromAnalysisServerString(String str,
+      [String fullMessage, int count = 1, String sessionLocation]) {
     this.fullMessage = fullMessage;
     this.count = count;
+    this.sessionLocation = sessionLocation;
 
     // Strip anything before "Caused by"
     if (str.contains("Caused by")) {
@@ -53,9 +60,8 @@ class StackTrace {
     locations = newLines;
   }
 
-  static double distance(cluster.DataItem a, cluster.DataItem b) =>
-    distances.jaccardDistance(a.data.locations.toSet(), b.data.locations.toSet());
-
+  static double distance(cluster.DataItem a, cluster.DataItem b) => distances
+      .jaccardDistance(a.data.locations.toSet(), b.data.locations.toSet());
 
   bool equalByStackTraces(StackTrace other) {
     if (locations.length != other.locations.length) return false;

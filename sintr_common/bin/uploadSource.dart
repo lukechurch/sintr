@@ -13,7 +13,7 @@ import "package:sintr_common/gae_utils.dart" as gae_utils;
 import 'package:sintr_common/logging_utils.dart';
 import 'package:path/path.dart' as path_utils;
 
-const PERMITTED_FILE_EXTENSIONS = const <String>["dart", "json", "sh", "yaml"];
+const PERMITTED_FILE_EXTENSIONS = const <String>[".dart", ".json", ".sh", ".yaml"];
 
 main(List<String> args) async {
   setupLogging();
@@ -64,6 +64,8 @@ main(List<String> args) async {
           () => new io.File("$path/$relativePath").readAsStringSync());
     }
     var json = JSON.encode(sourceMap);
+
+    trace("Uploading ${sourceMap.keys.length} files");
 
     List<int> bytes = UTF8.encode(json);
 

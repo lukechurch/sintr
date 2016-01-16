@@ -7,7 +7,6 @@ import 'package:sintr_common/logging_utils.dart';
 import 'package:sintr_common/tasks.dart' as tasks;
 import "package:sintr_common/gae_utils.dart" as gae_utils;
 
-
 main() async {
   setupLogging();
 
@@ -23,18 +22,18 @@ main() async {
   var datastoreDB = new db.DatastoreDB(datastore);
 
   ss.fork(() async {
-
-
     db.registerDbService(datastoreDB);
     // db.DatastoreDB _db = ae.context.services.db;
 
-    tasks.TaskController taskController =
-        new tasks.TaskController("test_task");
+    tasks.TaskController taskController = new tasks.TaskController("test_task");
 
-    taskController.createTasks([
+    taskController.createTasks(
+        [
       new gae_utils.CloudStorageLocation("t1", "o1"),
       new gae_utils.CloudStorageLocation("t2", "o2")
-    ], new gae_utils.CloudStorageLocation("liftoff-dev-source", "test_worker.json"),
-    "liftoff-dev-results");
+    ],
+        new gae_utils.CloudStorageLocation(
+            "liftoff-dev-source", "test_worker.json"),
+        "liftoff-dev-results");
   });
 }

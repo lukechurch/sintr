@@ -13,7 +13,8 @@ main() async {
   String projectId = "liftoff-dev";
 
   config.configuration = new config.Configuration(projectId,
-      cryptoTokensLocation: "${config.userHomePath}/Communications/CryptoTokens");
+      cryptoTokensLocation:
+          "${config.userHomePath}/Communications/CryptoTokens");
 
   var client = await getAuthedClient();
 
@@ -23,7 +24,6 @@ main() async {
   log.info("Setup done");
 
   ss.fork(() async {
-
     db.registerDbService(datastoreDB);
 
     tasks.TaskController taskController =
@@ -32,25 +32,25 @@ main() async {
     await taskController.deleteAllTasks();
     log.info("Tasks deleted");
 
-
     var taskList = [];
 
     for (int i = 0; i < 1000; i++) {
-      taskList.add(new gae_utils.CloudStorageLocation("liftoff-dev-datasources", "t8.shakespeare.txt"));
-      taskList.add(new gae_utils.CloudStorageLocation("liftoff-dev-datasources", "2.shakespeare.txt"));
+      taskList.add(new gae_utils.CloudStorageLocation(
+          "liftoff-dev-datasources", "t8.shakespeare.txt"));
+      taskList.add(new gae_utils.CloudStorageLocation(
+          "liftoff-dev-datasources", "2.shakespeare.txt"));
     }
 
-
     await taskController.createTasks(
-      // Input locations
-      taskList,
-    // Source locations
-    new gae_utils.CloudStorageLocation("liftoff-dev-source", "test_worker.json"),
+        // Input locations
+        taskList,
+        // Source locations
+        new gae_utils.CloudStorageLocation(
+            "liftoff-dev-source", "test_worker.json"),
 
-    // results
-    "liftoff-dev-results");
+        // results
+        "liftoff-dev-results");
 
     log.info("Tasks created");
   });
-
 }

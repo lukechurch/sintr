@@ -96,7 +96,6 @@ _handleTask(tasks.Task task) async {
 
     task.setState(tasks.LifecycleState.STARTED);
 
-
     log.trace("About to get source");
     String sourceJSON;
 

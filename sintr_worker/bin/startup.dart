@@ -18,6 +18,7 @@ import 'package:sintr_common/gae_utils.dart' as gae_utils;
 import 'package:sintr_common/logging_utils.dart' as log;
 import 'package:sintr_common/source_utils.dart';
 import 'package:sintr_common/tasks.dart' as tasks;
+import 'package:path/path.dart' as path;
 
 String workerFolder;
 const START_NAME = "worker_isolate.dart";
@@ -39,7 +40,7 @@ String cachedSourceJSON = null;
 
 main(List<String> args) async {
   if (args.length != 3) {
-    print ("Worker node for sintr");
+    print("Worker node for sintr");
     print("Usage: dart startup.dart project_name job_name worker_folder");
     print(args);
     io.exit(1);
@@ -57,35 +58,35 @@ main(List<String> args) async {
 start(String projectName, String jobName, String _workerFolder) async {
   workerFolder = _workerFolder;
   config.configuration = new config.Configuration(projectName,
-      cryptoTokensLocation: "${config.userHomePath}/Communications/CryptoTokens");
+      cryptoTokensLocation:
+          "${config.userHomePath}/Communications/CryptoTokens");
 
   var client = await auth.getAuthedClient();
-  var dbService =
-      new db.DatastoreDB(new datastore_impl.DatastoreImpl(client, "s~$projectName"));
-      var sourceStorage = new storage.Storage(client, projectName);
+  var dbService = new db.DatastoreDB(
+      new datastore_impl.DatastoreImpl(client, "s~$projectName"));
+  var sourceStorage = new storage.Storage(client, projectName);
 
-      ss.fork(() async {
-        storage.registerStorageService(sourceStorage);
-        db.registerDbService(dbService);
+  ss.fork(() async {
+    storage.registerStorageService(sourceStorage);
+    db.registerDbService(dbService);
 
-        tasks.TaskController taskController =
-            new tasks.TaskController(jobName);
-            log.trace("Task loop starting");
+    tasks.TaskController taskController = new tasks.TaskController(jobName);
+    log.trace("Task loop starting");
 
-            while (true) {
-               var task = await taskController.getNextReadyTask();
+    while (true) {
+      var task = await taskController.getNextReadyTask();
 
-               if (task == null) {
-                 log.info("Got null next ready task, sleeping");
-                 await new Future.delayed(DELAY_BETWEEN_TASK_POLLS);
-                 continue;
-               }
+      if (task == null) {
+        log.info("Got null next ready task, sleeping");
+        await new Future.delayed(DELAY_BETWEEN_TASK_POLLS);
+        continue;
+      }
 
-               Stopwatch sw = new Stopwatch()..start();
-               await _handleTask(task);
-               log.perf("Task $task completed", sw.elapsedMilliseconds);
-            }
-      });
+      Stopwatch sw = new Stopwatch()..start();
+      await _handleTask(task);
+      log.perf("Task $task completed", sw.elapsedMilliseconds);
+    }
+  });
 }
 
 _handleTask(tasks.Task task) async {
@@ -93,7 +94,6 @@ _handleTask(tasks.Task task) async {
 
   Stopwatch sw = new Stopwatch()..start();
   try {
-
     task.setState(tasks.LifecycleState.STARTED);
 
     log.trace("About to get source");
@@ -110,12 +110,14 @@ _handleTask(tasks.Task task) async {
     } else {
       var oldMd5 = lastSeenMd5;
 
-      sourceJSON = await
-        gae_utils.CloudStorage.getFileContentsByLocation(sourceLocation)
-            .transform(UTF8.decoder).join();
-        lastSeenMd5 = sourceLocation.md5;
-        cachedSourceJSON = sourceJSON;
-        log.trace("Cache miss (was: $oldMd5): Source JSON acquired $lastSeenMd5");
+      log.trace("Loading source from: $sourceLocation");
+      sourceJSON = await gae_utils.CloudStorage
+          .getFileContentsByLocation(sourceLocation)
+          .transform(UTF8.decoder)
+          .join();
+      lastSeenMd5 = sourceLocation.md5;
+      cachedSourceJSON = sourceJSON;
+      log.trace("Cache miss (was: $oldMd5): Source JSON acquired $lastSeenMd5");
     }
 
     var sourceMap = JSON.decode(sourceJSON);
@@ -124,7 +126,7 @@ _handleTask(tasks.Task task) async {
 
     gae_utils.CloudStorageLocation inputLocation = await task.inputSource;
     String locationJSON =
-      JSON.encode([inputLocation.bucketName, inputLocation.objectPath]);
+        JSON.encode([inputLocation.bucketName, inputLocation.objectPath]);
 
     int elasped = sw.elapsedMilliseconds;
     log.perf("Source acquired", elasped);
@@ -141,9 +143,8 @@ _handleTask(tasks.Task task) async {
 
     var resultsLocation = await task.resultLocation;
 
-    await gae_utils.CloudStorage.writeFileBytes(
-      resultsLocation.bucketName, resultsLocation.objectPath,
-      UTF8.encode(response));
+    await gae_utils.CloudStorage.writeFileBytes(resultsLocation.bucketName,
+        resultsLocation.objectPath, UTF8.encode(response));
 
     // await gae_utils.CloudStorage.writeFileContents(
     //   resultsLocation.bucketName, objectPathForResult).addStream(
@@ -160,7 +161,6 @@ _handleTask(tasks.Task task) async {
 
     elasped = sw.elapsedMilliseconds;
     log.perf("Task $task Done", elasped);
-
   } catch (e, st) {
     log.info("Worker threw an exception: $e\n$st");
 
@@ -172,6 +172,8 @@ _handleTask(tasks.Task task) async {
 _ensureSourceIsInstalled(Map<String, String> codeMap) {
   String sha = computeCodeSha(codeMap);
 
+  log.trace("Performing _ensureSourceInstalled: $sha");
+
   if (sha == shaCodeRunningInIsolate) {
     log.debug("Code already installed: $sha");
     // The right code is already installed and hot
@@ -179,24 +181,63 @@ _ensureSourceIsInstalled(Map<String, String> codeMap) {
   }
 
   // Shutdown the existing isolate
-  log.debug("Killing existing isolate");
   if (isolate != null) {
+    log.debug("Killing existing isolate");
     isolate.kill();
     isolate = null;
+  } else {
+    log.debug("No existing isolate");
   }
+
+  List<String> pubspecPathsToUpdate = <String>[];
 
   // Write the code to the folder
   // TODO: This needs corresponding teardown, otherwise we have to wipe the VMs
   // between each execution
   for (String sourceName in codeMap.keys) {
+    //TODO: Path package
+
+    String fullName = path.join(workerFolder, sourceName);
+    io.File fileObj = new io.File(fullName);
+
+    if (sourceName.toLowerCase().endsWith("pubspec.yaml")) {
+      if (fileObj.existsSync() &&
+          fileObj.readAsStringSync() == codeMap[sourceName]) {
+        log.trace("$fullName unchanged, skipping");
+        continue; // Pubspec on disk was exactly the same as in memory
+      } else {
+        log.trace("$fullName changed, Pub get will be needed");
+        pubspecPathsToUpdate.add(fullName);
+      }
+    }
+
+    log.trace("Writing: ${fileObj.path}");
     // Ensure that the folder structures are in place
-    new io.File("$workerFolder$sourceName").createSync(recursive: true);
-    new io.File("$workerFolder$sourceName").writeAsStringSync(codeMap[sourceName]);
+    fileObj.createSync(recursive: true);
+    fileObj.writeAsStringSync(codeMap[sourceName]);
   }
-  _setupIsolate("$workerFolder$START_NAME");
+
+  if (pubspecPathsToUpdate.length > 0) _pubUpdate(pubspecPathsToUpdate);
+  _setupIsolate(path.join(workerFolder, START_NAME));
 
   log.debug("Isolate started with sha: $sha");
   shaCodeRunningInIsolate = sha;
+}
+
+_pubUpdate(List<String> pubspecPathsToUpdate) async {
+  io.Directory orginalWorkingDirectory = io.Directory.current;
+
+  for (String fullName in pubspecPathsToUpdate) {
+    //TODO: Path package
+    io.Directory.current = path.dirname(fullName);
+
+    log.trace("In ${io.Directory.current.toString()} about to run pub get");
+    io.ProcessResult result = await io.Process.runSync("pub", ["get"]);
+    log.trace("Pub get complete: exit code: ${result.exitCode} \n"
+        " stdout:\n${result.stdout} \n stderr:\n${result.stderr}");
+  }
+
+  io.Directory.current = orginalWorkingDirectory;
 }
 
 _setupIsolate(String startPath) async {

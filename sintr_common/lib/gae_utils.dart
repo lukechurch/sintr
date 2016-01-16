@@ -51,6 +51,9 @@ class CloudStorageLocation {
   final String md5;
 
   CloudStorageLocation(this.bucketName, this.objectPath, [this.md5]);
+
+  @override
+  String toString() => "$bucketName $objectPath $md5";
 }
 
 Future<Set<String>> listBucket(storage.Bucket bucket, {String prefix}) async {

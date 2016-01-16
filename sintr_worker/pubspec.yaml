@@ -10,7 +10,8 @@ dependencies:
   gcloud: '>=0.2.0+4 <0.3.0'
   logging: '>=0.11.1 <0.12.0'
   crypto: '>=0.9.0 <0.10.0'
+  path: any
   sintr_common:
     path: ../sintr_common
-dev_dependencies:
-  test: '>=0.12.0 <0.13.0'
+# dev_dependencies:
+  # test: '>=0.12.0 <0.13.0'

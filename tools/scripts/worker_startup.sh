@@ -15,6 +15,10 @@ sudo sh -c 'curl https://storage.googleapis.com/download.dartlang.org/linux/debi
 sudo apt-get update
 
 sudo apt-get install dart
+sudo apt-get install git -y
+
+# Add Dart to the path
+PATH=$PATH:/usr/lib/dart/bin
 
 # Dpeloy crypto tokens
 mkdir -p ~/Communications/CryptoTokens
@@ -26,28 +30,22 @@ gsutil cp gs://liftoff-dev-source/sintr-image.tar.gz ~/src/sintr/sintr-image.tar
 
 cd ~/src/sintr/
 tar -xf sintr-image.tar.gz
-cd sintr_common
-/usr/lib/dart/bin/pub get
-cd ..
 
-cd sintr_working
-/usr/lib/dart/bin/pub get
-cd ..
-
-cd sintr_worker
-/usr/lib/dart/bin/pub get
-cd ..
+# Pub get
+find . -type f -name 'pubspec.yaml' \
+  -exec sh -c '(publican=$(dirname {}) && cd $publican && pub get)' \;
 
 # Now in worker root
-
-cd sintr_worker
+cd ~/src/sintr/sintr_worker
 
 while true; do
   INSTANCE_ID=$(curl http://metadata/computeMetadata/v1/instance/hostname -H "Metadata-Flavor: Google")
   NOW=$(date +"%Y-%m-%d-%H-%M-%S")
 
+  # startup.dart project_name job_name worker_folder
   dart -c bin/startup.dart liftoff-dev example_task $(readlink -f ../sintr_working)/ > ../$INSTANCE_ID-$NOW.log 2>&1
 
+  # Upload the logs
   gsutil cp ../$INSTANCE_ID-$NOW.log gs://liftoff-dev-worker-logs
   sleep 5
 done

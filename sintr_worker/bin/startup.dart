@@ -23,6 +23,7 @@ import 'package:path/path.dart' as path;
 String workerFolder;
 const START_NAME = "worker_isolate.dart";
 const DELAY_BETWEEN_TASK_POLLS = const Duration(seconds: 60);
+const MAX_SPIN_WAITS_FOR_SEND_PORT = 100;
 
 // Worker properties.
 SendPort sendPort;
@@ -121,7 +122,7 @@ _handleTask(tasks.Task task) async {
     }
 
     var sourceMap = JSON.decode(sourceJSON);
-    _ensureSourceIsInstalled(sourceMap);
+    await _ensureSourceIsInstalled(sourceMap);
     log.trace("Source installed");
 
     gae_utils.CloudStorageLocation inputLocation = await task.inputSource;
@@ -169,7 +170,7 @@ _handleTask(tasks.Task task) async {
   }
 }
 
-_ensureSourceIsInstalled(Map<String, String> codeMap) {
+_ensureSourceIsInstalled(Map<String, String> codeMap) async {
   String sha = computeCodeSha(codeMap);
 
   log.trace("Performing _ensureSourceInstalled: $sha");
@@ -218,7 +219,7 @@ _ensureSourceIsInstalled(Map<String, String> codeMap) {
   }
 
   if (pubspecPathsToUpdate.length > 0) _pubUpdate(pubspecPathsToUpdate);
-  _setupIsolate(path.join(workerFolder, START_NAME));
+  await _setupIsolate(path.join(workerFolder, START_NAME));
 
   log.debug("Isolate started with sha: $sha");
   shaCodeRunningInIsolate = sha;
@@ -259,6 +260,18 @@ _setupIsolate(String startPath) async {
 
   isolate =
       await Isolate.spawnUri(Uri.parse(startPath), [], receivePort.sendPort);
+
+  int spinCounter = 0;
+  while (sendPort == null && spinCounter++ < MAX_SPIN_WAITS_FOR_SEND_PORT) {
+    await new Future.delayed(new Duration(milliseconds: 50));
+    log.debug("Spinning waiting for send port");
+  }
+
+  if (sendPort == null) {
+    throw "sendPort was not recieved after $MAX_SPIN_WAITS_FOR_SEND_PORT waits";
+  }
+
+
   isolate.setErrorsFatal(false);
   log.info("Worker isolate spawned");
 }

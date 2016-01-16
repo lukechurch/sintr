@@ -1,8 +1,9 @@
 # Startup script for the scintr worker
 # This should be run on the worker node
 
-# Install Dart
+JOB_NAME=$1
 
+# Install Dart
 # Enable HTTPS for apt.
 sudo apt-get update
 sudo apt-get install apt-transport-https
@@ -43,7 +44,7 @@ while true; do
   NOW=$(date +"%Y-%m-%d-%H-%M-%S")
 
   # startup.dart project_name job_name worker_folder
-  dart -c bin/startup.dart liftoff-dev example_task $(readlink -f ../sintr_working)/ > ../$INSTANCE_ID-$NOW.log 2>&1
+  dart -c bin/startup.dart liftoff-dev $JOB_NAME $(readlink -f ../sintr_working)/ > ../$INSTANCE_ID-$NOW.log 2>&1
 
   # Upload the logs
   gsutil cp ../$INSTANCE_ID-$NOW.log gs://liftoff-dev-worker-logs

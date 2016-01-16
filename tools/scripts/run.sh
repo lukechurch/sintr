@@ -15,6 +15,7 @@ dart sintr_analysis_server_example/bin/delete_all_tasks.dart
 
 echo "Deploying Sintr"
 ./tools/scripts/deploy_image.sh
+gsutil cp tools/scripts/worker_startup.sh gs://liftoff-dev-source/worker_startup.sh
 
 echo "Deploying Client code"
 ./tools/scripts/upload_sample_src.sh
@@ -22,7 +23,7 @@ echo "Deploying Client code"
 # The next part is slow and can be done in parrallel
 
 echo "Deploying cluster"
-./tools/scripts/deploy_worker_cluster.sh $CLUSTER_SIZE &
+./tools/scripts/deploy_worker_cluster.sh $CLUSTER_SIZE $JOB_NAME &
 
 echo "Creating tasks"
 dart sintr_analysis_server_example/bin/create_tasks.dart true $1 \!PRI

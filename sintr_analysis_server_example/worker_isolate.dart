@@ -11,11 +11,10 @@ import 'package:sintr_common/configuration.dart' as config;
 import 'package:sintr_common/logging_utils.dart' as log;
 import 'package:sintr_worker_lib/bucket_util.dart';
 import 'package:sintr_worker_lib/instrumentation_transformer.dart';
-import 'package:sintr_worker_lib/query/completion_metrics.dart';
-import 'package:sintr_worker_lib/query/versions.dart';
-import 'package:sintr_worker_lib/query/severe_log.dart';
 
 import 'package:sintr_worker_lib/session_info.dart';
+import 'package:sintr_worker_lib/job_config.dart' as jobs;
+
 
 const projectName = "liftoff-dev";
 
@@ -41,8 +40,8 @@ Future<String> _protectedHandle(String msg) async {
     int lines = 0;
 
     // Initialize query specific objects
-    var mapper = new SevereLogMapper();
-    const needsSessionInfo = true;
+    var mapper = jobs.DEFAULT.mapper;
+    var needsSessionInfo = jobs.DEFAULT.needsSessionInfo;
 
     // Cloud connect
     config.configuration = new config.Configuration(projectName,

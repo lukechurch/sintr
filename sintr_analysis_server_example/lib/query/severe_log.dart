@@ -7,10 +7,12 @@ library sintr_worker_lib.query.failures;
 import 'package:sintr_worker_lib/instrumentation_query.dart';
 
 const SEVERE_LOG = 'SevereLog';
+const SERVER_ERR = "SeverError";
 
 /// Add an extraction result to the overall [results]
 /// where [extracted] is produced by [SevereLogMapper].
 final severeLogReducer = (String sdkVersion, List logData, Map results) {
+  print(logData);
   // Extract log data
   var sessionId = logData[0];
   var eventTime = new DateTime.fromMillisecondsSinceEpoch(logData[1]);
@@ -23,6 +25,39 @@ final severeLogReducer = (String sdkVersion, List logData, Map results) {
   ++sdkResults[sessionId];
 
   // Update current results
+  return results;
+};
+
+final severeLogCountReducer = (String sdkVersion, List logData, Map results) {
+  for (var items in logData) {
+    // String msgType = items[0];
+    Map<String, List<int>> times = items[1]["times"];
+    Map<String, int> counts = items[1]["counts:"];
+
+    if (times == null || counts == null) {
+      print(items);
+      continue;
+    }
+
+    var eventTime =
+        new DateTime.fromMillisecondsSinceEpoch(times.values.first.first);
+    var eventDate = "${eventTime.year}-${eventTime.month}-${eventTime.day}";
+
+    if (eventDate == "2015-11-24") {
+      print("==== COUNTS ====");
+      print(counts);
+      print("==== TIMES ====");
+      print(times);
+      print("==== ----- ====");
+    }
+
+    int count = counts.values.reduce((x, y) => x + y);
+
+    Map dateResults = results.putIfAbsent(eventDate, () => {});
+    dateResults.putIfAbsent(sdkVersion, () => 0);
+    dateResults[sdkVersion] += count;
+  }
+
   return results;
 };
 
@@ -40,10 +75,31 @@ final severeLogReducer = (String sdkVersion, List logData, Map results) {
 class SevereLogMapper extends _AbstractFailureMapper {
   @override
   void mapLogMessage(int time, String msgType, String logMessageText) {
-    if (msgType == 'Log') {
-      if (logMessageText.startsWith('SEVERE:')) {
-        _processSevereLogMsg(time, logMessageText);
-      }
+    switch (msgType) {
+      case 'Log':
+        if (logMessageText.startsWith('SEVERE:')) {
+          _processSevereLogMsg(time, logMessageText);
+        }
+        break;
+      case 'Noti':
+        if (logMessageText.startsWith("{\"event\"::\"server.error\"")) {
+          // print("========= SERVER.ERROR ==========");
+          // print(logMessageText);
+          _recordFailure(time, SERVER_ERR, logMessageText);
+          // print("========= SERVER/ERROR ==========");
+        }
+
+        break;
+      case 'Read':
+      case 'Res':
+      case 'Req':
+      case 'Perf':
+      case 'Task':
+      case 'Watch':
+        break;
+      default:
+        print (msgType);
+
     }
   }
 
@@ -63,7 +119,8 @@ abstract class _AbstractFailureMapper extends InstrumentationMapper {
   Map<String, Map<String, int>> typeResultsCounts = {};
 
   void _recordFailure(int time, String resultType, String resultData) {
-    String data = resultData.split('\n')[0];
+    String data = resultData;
+    if (resultType != SERVER_ERR) data = data.split('\n')[0];
 
     typeResultsTimes.putIfAbsent(resultType, () => {});
     typeResultsCounts.putIfAbsent(resultType, () => {});
@@ -86,9 +143,10 @@ abstract class _AbstractFailureMapper extends InstrumentationMapper {
       var times = typeResultsTimes[typeResult];
       var counts = typeResultsCounts[typeResult];
 
-      addResult(sdkVersion, [typeResult, {
-        "times": times,
-        "counts:": counts}]);
+      addResult(sdkVersion, [
+        typeResult,
+        {"times": times, "counts:": counts}
+      ]);
     }
   }
 }

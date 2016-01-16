@@ -10,20 +10,19 @@ import 'package:sintr_common/logging_utils.dart' as log;
 import 'package:sintr_common/task_utils.dart' as task_utils;
 import 'package:sintr_common/gae_utils.dart';
 
+import 'package:sintr_worker_lib/job_config.dart' as jobs;
+
+
 const VERBOSE_LOGGING = false;
 
 main(List<String> args) async {
   log.setupLogging();
-
-  String filterString = null;
   bool include = true;
 
   // TODO(lukechurch): This is getting silly. args package.
   if (args.length < 2) {
     print("Create tasks for workers");
-    print("Usage: dart create_tasks.dart <incremental> <job_name> [source_filter]");
-    print("\tsource_filter: Alpha-numeric string, inverted if starting with !");
-    print("\tExamples: PRI or !PRI");
+    print("Usage: dart create_tasks.dart [incremental] <job_name>");
     io.exit(1);
   }
 
@@ -43,20 +42,17 @@ main(List<String> args) async {
   }
 
   String jobName = args[1];
+  String filterString = jobs.DEFAULT.filter;
 
-  if (args.length == 3) {
-    filterString = args[2];
+  if (filterString.startsWith("!")) {
+    include = false;
+    filterString = filterString.substring(1);
+  }
 
-    if (filterString.startsWith("!")) {
-      include = false;
-      filterString = filterString.substring(1);
-    }
-
-    if (include) {
-      log.info("Including $filterString");
-    } else {
-      log.info("Excluding $filterString");
-    }
+  if (include) {
+    log.info("Including $filterString");
+  } else {
+    log.info("Excluding $filterString");
   }
 
   String projectId = "liftoff-dev";

@@ -13,6 +13,8 @@ import "package:sintr_common/gae_utils.dart" as gae_utils;
 import 'package:sintr_common/logging_utils.dart';
 import 'package:path/path.dart' as path_utils;
 
+const PERMITTED_FILE_EXTENSIONS = const <String>["dart", "json", "sh", "yaml"];
+
 main(List<String> args) async {
   setupLogging();
 
@@ -30,16 +32,17 @@ main(List<String> args) async {
   String path = args[3];
 
   if (path.endsWith('/')) {
-    print ("Please use unterimanted paths");
+    print("Please use unterimanted paths");
     io.exit(1);
   }
 
-  var dartFiles = new io.Directory(path)
-      .listSync(recursive: true)
-      .where((fse) => fse.path.endsWith(".dart"));
+  var dartFiles = new io.Directory(path).listSync(recursive: true).where(
+      (fse) =>
+          PERMITTED_FILE_EXTENSIONS.contains(path_utils.extension(fse.path)));
 
   // Compute paths relative to the source
   // -> Sub path, strip '/' from the start
+  // TODO: Use the path package instead
   var relativePaths = dartFiles
       .map((fse) => fse.path.split(path)[1].substring(1))
       .where((p) => !(p.contains('packages') || p.contains('.pub')))
@@ -57,8 +60,8 @@ main(List<String> args) async {
     var sourceMap = {};
 
     for (String relativePath in relativePaths) {
-      sourceMap.putIfAbsent(
-          relativePath, () => new io.File("$path/$relativePath").readAsStringSync());
+      sourceMap.putIfAbsent(relativePath,
+          () => new io.File("$path/$relativePath").readAsStringSync());
     }
     var json = JSON.encode(sourceMap);
 

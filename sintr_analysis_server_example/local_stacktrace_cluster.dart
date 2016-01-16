@@ -19,6 +19,7 @@ main(List<String> args) async {
   String path = args[0];
   String outPath = args[1];
 
+  Map<dynamic, String> fileMaps = {};
   var fses = new io.Directory(path).listSync();
 
   log("Loading ${fses.length} logs");
@@ -36,6 +37,8 @@ main(List<String> args) async {
     for (var result in results) {
       var k = result[0];
       var v = result[1];
+
+      fileMaps[v] = fse.path;
 
       inMemoryKV.putIfAbsent(k, () => []);
       inMemoryKV[k].add(v);
@@ -65,7 +68,7 @@ main(List<String> args) async {
 
           st.StackTrace sts =
               new st.StackTrace.fromAnalysisServerString(
-                stString, errReport, 1);
+                stString, errReport, 1, fileMaps[results]);
 
           stackTracesByVersion.putIfAbsent(k, () => []);
           stackTracesByVersion[k].add(sts);

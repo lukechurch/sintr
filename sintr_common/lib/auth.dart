@@ -36,20 +36,6 @@ Future<AuthClient> getAuthedClient() async {
   throw "Unable to get client";
 }
 
-Future<AuthClient> _tryAuthViaMetadata() async {
-  AuthClient client;
-  try {
-    logging.trace("PRE: About to get client from Metadata server");
-    client = await clientViaMetadataServer();
-  } catch (e, st) {
-    logging.info("NOK: Metadata server query for client failed");
-    logging.debug("$e");
-    logging.debug("$st");
-    return null;
-  }
-  return client;
-}
-
 Future<AuthClient> _tryAuthViaCryptoToken() async {
   AuthClient client;
   try {

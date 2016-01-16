@@ -6,8 +6,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
 
-import 'package:gcloud/db.dart' as db;
-import 'package:gcloud/src/datastore_impl.dart' as datastore_impl;
+// import 'package:gcloud/db.dart' as db;
+// import 'package:gcloud/src/datastore_impl.dart' as datastore_impl;
 import 'package:gcloud/storage.dart' as storage;
 import 'package:sintr_common/auth.dart' as auth;
 import 'package:sintr_common/auth.dart';
@@ -57,7 +57,7 @@ Future<String> getDataFromCloud(String bucketName, String objectPath) async {
       cryptoTokensLocation: "${config.userHomePath}/Communications/CryptoTokens");
 
     var client = await auth.getAuthedClient();
-    var dbService = new db.DatastoreDB(new datastore_impl.DatastoreImpl(client, "s~$projectName"));
+    // var dbService = new db.DatastoreDB(new datastore_impl.DatastoreImpl(client, "s~$projectName"));
     var sourceStorage = new storage.Storage(client, projectName);
     return sourceStorage.bucket(bucketName).read(objectPath).transform(UTF8.decoder).join();
 }

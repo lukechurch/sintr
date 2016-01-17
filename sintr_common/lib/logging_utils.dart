@@ -4,7 +4,7 @@
 
 import 'package:logging/logging.dart' as logging;
 
-logging.Logger _logger = new logging.Logger("sintr_common");
+logging.Logger _logger;
 
 info(String message) => _logger.info(message);
 trace(String message) => _logger.finer(message);
@@ -14,7 +14,9 @@ alert(String message) => _logger.shout(message);
 perf(String name, int ms) => _logger.fine("PERF: $name : $ms");
 
 /// Setup log streaming to the right place for local and remote deployment.
-setupLogging() {
+setupLogging([String loggerName = "sintr_common"]) {
+  _logger = new logging.Logger(loggerName);
+
   // TODO(lukechurch): Add support for container logs
   _setupLocalLogging();
 }
@@ -23,8 +25,8 @@ setupLogging() {
 _setupLocalLogging() {
   // Setup the logging
   logging.hierarchicalLoggingEnabled = false;
-  logging.Logger.root.level = logging.Level.FINER;
+  logging.Logger.root.level = logging.Level.ALL;
   logging.Logger.root.onRecord.listen((logging.LogRecord rec) {
-    print('${rec.level.name}: ${rec.time}: ${rec.message}');
+    print('${rec.loggerName}: ${rec.level.name}: ${rec.time}: ${rec.message}');
   });
 }

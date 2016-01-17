@@ -23,7 +23,7 @@ echo "Deploying Client code"
 # The next part is slow and can be done in parrallel
 
 echo "Deploying cluster"
-./tools/scripts/deploy_worker_cluster.sh $CLUSTER_SIZE $JOB_NAME &
+./tools/scripts/deploy_worker_cluster.sh $CLUSTER_SIZE $JOB_NAME
 
 echo "Creating tasks"
 dart sintr_analysis_server_example/bin/create_tasks.dart true $1 \!PRI

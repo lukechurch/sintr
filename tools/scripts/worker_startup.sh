@@ -3,6 +3,8 @@
 
 JOB_NAME=$1
 
+echo "Job:" $JOB_NAME
+
 # Install Dart
 # Enable HTTPS for apt.
 sudo apt-get update

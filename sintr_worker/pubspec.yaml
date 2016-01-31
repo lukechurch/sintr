@@ -12,6 +12,6 @@ dependencies:
   crypto: '>=0.9.0 <0.10.0'
   path: any
   sintr_common:
-    path: ../sintr_common
+    git: https://github.com/lukechurch/sintr_common.git
 # dev_dependencies:
   # test: '>=0.12.0 <0.13.0'

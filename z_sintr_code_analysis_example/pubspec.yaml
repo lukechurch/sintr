@@ -15,7 +15,7 @@ dependencies:
   nectar:
      git: https://github.com/lukechurch/nectar.git
   sintr_common:
-    path: ../sintr_common
+    git: https://github.com/lukechurch/sintr_common.git
   intl: any
   cli_util: any
   path: any

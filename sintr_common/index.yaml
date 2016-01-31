@@ -1,5 +1,0 @@
-indexes:
-  - kind: _TaskModel
-  properties:
-  - name: parentJobName
-  - name: lifecycleState

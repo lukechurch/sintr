@@ -1,0 +1,25 @@
+name: sintr_worker_lib
+description: Example of using sintr to run the analyzer
+version: 0.0.1
+author: Dart Team <misc@dartlang.org>
+environment:
+  sdk: '>=1.0.0 <2.0.0'
+dependencies:
+  appengine: ^0.3.0
+  memcache: ^0.2.0
+  googleapis_auth: '>=0.1.1 <0.3.0'
+  gcloud: '>=0.2.0+4 <0.3.0'
+  logging: '>=0.11.1 <0.12.0'
+  crypto: '>=0.9.0 <0.10.0'
+  uuid: ^0.5.0
+  nectar:
+     git: https://github.com/lukechurch/nectar.git
+  sintr_common:
+    path: ../sintr_common
+  intl: any
+  cli_util: any
+  path: any
+  services:
+    git: https://github.com/dart-lang/dart-services.git
+# dev_dependencies:
+  # test: any

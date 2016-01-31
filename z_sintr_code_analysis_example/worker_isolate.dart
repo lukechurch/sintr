@@ -81,7 +81,7 @@ Future processFile(
       await downloadFile(
         sourceStorage.bucket(bucketName),
         cloudFileName,
-        workingDirectory);
+        workingDirectory).timeout(new Duration(seconds: 300));
 
       log.info("Decompressing");
       workingDirectory = new Directory(workingPath);

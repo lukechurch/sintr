@@ -9,7 +9,7 @@ import 'dart:io' as io;
 import 'package:path/path.dart';
 import 'package:sintr_worker_lib/instrumentation_transformer.dart';
 import 'package:sintr_worker_lib/query.dart';
-import 'package:sintr_worker_lib/query/completion_metrics.dart';
+// import 'package:sintr_worker_lib/query/completion_metrics.dart';
 import 'package:sintr_worker_lib/query/severe_log.dart';
 
 main(List<String> args) async {

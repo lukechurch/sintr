@@ -9,11 +9,11 @@ import 'dart:isolate';
 import 'package:sintr_common/auth.dart' as auth;
 import 'package:sintr_common/configuration.dart' as config;
 import 'package:sintr_common/logging_utils.dart' as log;
-import 'package:sintr_worker_lib/bucket_util.dart';
-import 'package:sintr_worker_lib/instrumentation_transformer.dart';
+import 'lib/bucket_util.dart';
+import 'lib/instrumentation_transformer.dart';
 
-import 'package:sintr_worker_lib/session_info.dart';
-import 'package:sintr_worker_lib/job_config.dart' as jobs;
+import 'lib/session_info.dart';
+import 'lib/job_config.dart' as jobs;
 
 
 const projectName = "liftoff-dev";
@@ -21,6 +21,8 @@ const projectName = "liftoff-dev";
 var client;
 
 Future main(List<String> args, SendPort sendPort) async {
+  log.setupLogging("sintr:z_analysis_server_example:worker_isolate");
+
   ReceivePort receivePort = new ReceivePort();
   sendPort.send(receivePort.sendPort);
 
@@ -30,6 +32,8 @@ Future main(List<String> args, SendPort sendPort) async {
 }
 
 Future<String> _protectedHandle(String msg) async {
+  log.trace("Begin _protectedHandle: $msg");
+
   try {
     var inputData = JSON.decode(msg);
     String bucketName = inputData[0];
@@ -40,8 +44,8 @@ Future<String> _protectedHandle(String msg) async {
     int lines = 0;
 
     // Initialize query specific objects
-    var mapper = jobs.DEFAULT.mapper;
-    var needsSessionInfo = jobs.DEFAULT.needsSessionInfo;
+    var mapper = jobs.severeLogsAll.mapper;
+    var needsSessionInfo = jobs.severeLogsAll.needsSessionInfo;
 
     // Cloud connect
     config.configuration = new config.Configuration(projectName,
@@ -49,8 +53,12 @@ Future<String> _protectedHandle(String msg) async {
             "${config.userHomePath}/Communications/CryptoTokens");
     client = await auth.getAuthedClient();
 
+    log.trace("Client acquired");
+
     var sessionInfo = null;
     if (needsSessionInfo) {
+      log.trace("Getting sessionInfo");
+
 
       // Get the session info
       var pathComponents = objectPath.split("/");
@@ -79,7 +87,7 @@ Future<String> _protectedHandle(String msg) async {
       }
     }
 
-    print ("SessionInfo before init: $sessionInfo");
+    log.trace ("SessionInfo before init: $sessionInfo");
 
     // Extraction
     await mapper.init(sessionInfo, (String key, value) {

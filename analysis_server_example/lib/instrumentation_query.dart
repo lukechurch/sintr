@@ -6,8 +6,8 @@ library sintr_worker_lib.instrumentation_query;
 
 import 'dart:async';
 
-import 'package:sintr_worker_lib/query.dart';
-import 'package:sintr_worker_lib/session_info.dart';
+import 'query.dart';
+import 'session_info.dart';
 
 const _DEBUG = true;
 

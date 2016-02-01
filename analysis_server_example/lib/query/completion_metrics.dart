@@ -6,8 +6,8 @@ library sintr_worker_lib.completion;
 
 import 'dart:convert';
 
-import 'package:sintr_worker_lib/instrumentation_query.dart';
-import 'package:sintr_worker_lib/instrumentation_transformer.dart';
+import '../instrumentation_query.dart';
+import '../instrumentation_transformer.dart';
 
 const AVE = 'ave';
 const INCOMPLETE = 'incomplete';

@@ -7,7 +7,7 @@ library sintr_worker_lib.session_info;
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:sintr_worker_lib/instrumentation_transformer.dart';
+import 'instrumentation_transformer.dart';
 
 const SESSION_ID = 'sessionId';
 const CLIENT_START_TIME = 'clientStartTime';

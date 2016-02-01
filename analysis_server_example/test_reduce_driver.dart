@@ -16,11 +16,6 @@ main(List<String> args) async {
   }
 
   Map inMemoryKV = {};
-
-
-  Map usage = {};
-
-
   String path = args[0];
 
   var fses = new io.Directory(path).listSync();

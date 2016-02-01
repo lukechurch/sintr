@@ -22,11 +22,16 @@ main(List<String> args) async {
   // TODO(lukechurch): This is getting silly. args package.
   if (args.length < 2) {
     print("Create tasks for workers");
-    print("Usage: dart create_tasks.dart [incremental] <job_name>");
+    print("Usage: dart create_tasks.dart <job_name> <incremental_string>");
     io.exit(1);
   }
 
-  String incrementalString = args[0];
+  String jobName = args[0];
+  String incrementalString = args[1];
+
+  var jobConfig = jobs.jobMap[jobName];
+  String filterString = jobConfig.filter;
+
   bool incremental = null;
 
   switch (incrementalString.toLowerCase()) {
@@ -40,9 +45,6 @@ main(List<String> args) async {
       print("Unknown incremental string: $incrementalString");
       io.exit(1);
   }
-
-  String jobName = args[1];
-  String filterString = jobs.DEFAULT.filter;
 
   if (filterString.startsWith("!")) {
     include = false;

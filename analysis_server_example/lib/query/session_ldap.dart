@@ -6,7 +6,7 @@ library sintr_worker_lib.session_ldap;
 
 import 'dart:convert';
 
-import 'package:sintr_worker_lib/instrumentation_query.dart';
+import '../instrumentation_query.dart';
 
 final sessionIdComparator = (String s1, String s2) =>
     double.parse(s1) - double.parse(s2);

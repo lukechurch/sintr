@@ -29,7 +29,7 @@ final severeLogsAll = new JobConfig(
   true
 );
 
-final jobMap = {
+final jobMap = <String, JobConfig>{
   'versions' : versionsJob,
   'severeLogs' : severeLogsAll
 };

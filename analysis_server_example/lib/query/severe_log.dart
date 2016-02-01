@@ -4,7 +4,7 @@
 
 library sintr_worker_lib.query.failures;
 
-import 'package:sintr_worker_lib/instrumentation_query.dart';
+import '../instrumentation_query.dart';
 
 const SEVERE_LOG = 'SevereLog';
 const SERVER_ERR = "SeverError";

@@ -9,7 +9,7 @@ import 'dart:convert';
 
 import 'package:gcloud/storage.dart';
 import 'package:googleapis_auth/auth.dart';
-import 'package:sintr_worker_lib/instrumentation_transformer.dart';
+import 'instrumentation_transformer.dart';
 
 final _TIMEOUT = new Duration(seconds: 600);
 

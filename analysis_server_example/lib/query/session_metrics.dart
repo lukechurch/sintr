@@ -6,7 +6,7 @@ library sintr_worker_lib.session_metrics;
 
 import 'dart:convert';
 
-import 'package:sintr_worker_lib/session_info.dart';
+import '../session_info.dart';
 
 /// Initialize the session info extraction process
 final sessionInfoExtractionStart = (Map sessionInfo) {

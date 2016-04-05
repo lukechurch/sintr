@@ -21,7 +21,7 @@ const projectName = "liftoff-dev";
 var client;
 
 Future main(List<String> args, SendPort sendPort) async {
-  log.setupLogging("sintr:z_analysis_server_example:worker_isolate");
+  log.setupLogging("sintr:analysis_server_example:worker_isolate");
 
   ReceivePort receivePort = new ReceivePort();
   sendPort.send(receivePort.sendPort);
@@ -38,14 +38,15 @@ Future<String> _protectedHandle(String msg) async {
     var inputData = JSON.decode(msg);
     String bucketName = inputData[0];
     String objectPath = inputData[1];
+    String jobName = inputData[2];
     var results = [];
     var errItems = [];
     int failureCount = 0;
     int lines = 0;
 
     // Initialize query specific objects
-    var mapper = jobs.severeLogsAll.mapper;
-    var needsSessionInfo = jobs.severeLogsAll.needsSessionInfo;
+    var mapper = jobs.jobMap[jobName].mapper;
+    var needsSessionInfo = jobs.jobMap[jobName].needsSessionInfo;
 
     // Cloud connect
     config.configuration = new config.Configuration(projectName,

@@ -23,7 +23,11 @@ import 'package:path/path.dart' as path;
 String workerFolder;
 const START_NAME = "worker_isolate.dart";
 const DELAY_BETWEEN_TASK_POLLS = const Duration(seconds: 60);
-const MAX_SPIN_WAITS_FOR_SEND_PORT = 100;
+const MAX_SPIN_WAITS_FOR_SEND_PORT = 10000;
+
+const CLOUDSTORE_MAX_DURATION = const Duration(seconds: 120);
+const ALWAYS_RESET_ISOLATE = true;
+
 
 // Worker properties.
 SendPort sendPort;
@@ -84,18 +88,18 @@ start(String projectName, String jobName, String _workerFolder) async {
       }
 
       Stopwatch sw = new Stopwatch()..start();
-      await _handleTask(task);
+      await _handleTask(task, jobName);
       log.perf("Task $task completed", sw.elapsedMilliseconds);
     }
   });
 }
 
-_handleTask(tasks.Task task) async {
+_handleTask(tasks.Task task, String jobName) async {
   log.trace("Starting task $task");
 
   Stopwatch sw = new Stopwatch()..start();
   try {
-    task.setState(tasks.LifecycleState.STARTED);
+    await task.setState(tasks.LifecycleState.STARTED);
 
     log.trace("About to get source");
     String sourceJSON;
@@ -126,14 +130,14 @@ _handleTask(tasks.Task task) async {
     log.trace("Source installed");
 
     gae_utils.CloudStorageLocation inputLocation = await task.inputSource;
-    String locationJSON =
-        JSON.encode([inputLocation.bucketName, inputLocation.objectPath]);
+    String messageJSON =
+        JSON.encode([inputLocation.bucketName, inputLocation.objectPath, jobName]);
 
     int elasped = sw.elapsedMilliseconds;
     log.perf("Source acquired", elasped);
 
-    log.trace("Sending: $locationJSON");
-    sendPort.send(locationJSON);
+    log.trace("Sending: $messageJSON");
+    sendPort.send(messageJSON);
 
     // TOOD: Replace this with a streaming write to cloud storage
     String response = await resultsStream.first;
@@ -144,8 +148,22 @@ _handleTask(tasks.Task task) async {
 
     var resultsLocation = await task.resultLocation;
 
-    await gae_utils.CloudStorage.writeFileBytes(resultsLocation.bucketName,
-        resultsLocation.objectPath, UTF8.encode(response));
+    // Decode the result
+    var decodedResult = JSON.decode(response);
+
+    var error = decodedResult["error"];
+
+    if (error != null && decodedResult["result"] == null) {
+        await gae_utils.CloudStorage.writeFileBytes(resultsLocation.bucketName,
+            resultsLocation.objectPath + ".error", UTF8.encode(response)).timeout(CLOUDSTORE_MAX_DURATION);
+            await task.setState(tasks.LifecycleState.DEAD);
+
+        await _resetWorker("Error: $error");
+    } else {
+      await gae_utils.CloudStorage.writeFileBytes(resultsLocation.bucketName,
+          resultsLocation.objectPath, UTF8.encode(response)).timeout(CLOUDSTORE_MAX_DURATION);
+          await task.setState(tasks.LifecycleState.DONE);
+    }
 
     // await gae_utils.CloudStorage.writeFileContents(
     //   resultsLocation.bucketName, objectPathForResult).addStream(
@@ -154,7 +172,7 @@ _handleTask(tasks.Task task) async {
     elasped = sw.elapsedMilliseconds;
     log.perf("Result uploaded", elasped);
 
-    await task.setState(tasks.LifecycleState.DONE);
+    if (ALWAYS_RESET_ISOLATE) await _resetWorker("Always reset policy");
 
     // TODO: Move this into the task API rather than needing to edit
     // the backing object
@@ -164,6 +182,8 @@ _handleTask(tasks.Task task) async {
     log.perf("Task $task Done", elasped);
   } catch (e, st) {
     log.info("Worker threw an exception: $e\n$st");
+
+    await _resetWorker("Error: $e");
 
     // TODO: Model with failure count
     task.setState(tasks.LifecycleState.DEAD);
@@ -175,7 +195,7 @@ _ensureSourceIsInstalled(Map<String, String> codeMap) async {
 
   log.trace("Performing _ensureSourceInstalled: $sha");
 
-  if (sha == shaCodeRunningInIsolate) {
+  if (isolate != null && sha == shaCodeRunningInIsolate) {
     log.debug("Code already installed: $sha");
     // The right code is already installed and hot
     return;
@@ -183,9 +203,7 @@ _ensureSourceIsInstalled(Map<String, String> codeMap) async {
 
   // Shutdown the existing isolate
   if (isolate != null) {
-    log.debug("Killing existing isolate");
-    isolate.kill();
-    isolate = null;
+    _resetWorker("Code out of date");
   } else {
     log.debug("No existing isolate");
   }
@@ -237,11 +255,11 @@ _pubUpdate(List<String> pubspecPathsToUpdate) async {
     log.trace("Pub get complete: exit code: ${result.exitCode} \n"
         " stdout:\n${result.stdout} \n stderr:\n${result.stderr}");
   }
-
   io.Directory.current = orginalWorkingDirectory;
 }
 
 _setupIsolate(String startPath) async {
+  log.debug("isolate == null: ${isolate == null}");
   log.debug("_setupIsolate: $startPath");
   sendPort = null;
   receivePort = new ReceivePort();
@@ -250,6 +268,8 @@ _setupIsolate(String startPath) async {
 
   log.debug("About to bind to recieve port");
   receivePort.listen((msg) {
+    log.trace("recievePort message: $msg");
+
     if (sendPort == null) {
       log.debug("send port recieved");
       sendPort = msg;
@@ -257,21 +277,36 @@ _setupIsolate(String startPath) async {
       resultsController.add(msg);
     }
   });
-
+  log.debug("About to spawn isolate");
   isolate =
-      await Isolate.spawnUri(Uri.parse(startPath), [], receivePort.sendPort);
-
+      await Isolate.spawnUri(
+        Uri.parse(startPath),
+        [],
+        receivePort.sendPort,
+        errorsAreFatal: false,
+      automaticPackageResolution : true);
+  log.debug("Isolate spawned");
   int spinCounter = 0;
   while (sendPort == null && spinCounter++ < MAX_SPIN_WAITS_FOR_SEND_PORT) {
-    await new Future.delayed(new Duration(milliseconds: 50));
-    log.debug("Spinning waiting for send port");
+    log.debug("About to poll wait: $spinCounter");
+    await new Future.delayed(new Duration(milliseconds: 1));
+    log.debug("Spinning waiting for send port: $spinCounter");
   }
 
   if (sendPort == null) {
     throw "sendPort was not recieved after $MAX_SPIN_WAITS_FOR_SEND_PORT waits";
   }
-
-
-  isolate.setErrorsFatal(false);
   log.info("Worker isolate spawned");
+}
+
+_resetWorker(String cause) async {
+  log.debug("Restarting isolate due to: $cause");
+  log.debug("About to kill, isolate == null: ${isolate == null}");
+  isolate?.kill(priority: Isolate.IMMEDIATE);
+  isolate = null;
+
+  log.debug("ResultsStream == null: ${resultsStream == null}");
+  resultsController.close();
+  await resultsStream?.drain();
+  log.debug("Isolate now null");
 }

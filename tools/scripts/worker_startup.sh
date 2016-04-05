@@ -39,7 +39,7 @@ find . -type f -name 'pubspec.yaml' \
   -exec sh -c '(publican=$(dirname {}) && cd $publican && pub get)' \;
 
 # Setup the worker structure
-mkdir ~/src/sintr/sintr_worker
+mkdir ~/src/sintr/job_code
 
 # Now in worker root
 cd ~/src/sintr/sintr_worker
@@ -49,7 +49,7 @@ while true; do
   NOW=$(date +"%Y-%m-%d-%H-%M-%S")
 
   # startup.dart project_name job_name worker_folder
-  dart -c bin/startup.dart liftoff-dev $JOB_NAME $(readlink -f ~/src/sintr/sintr_worker)/ > ../$INSTANCE_ID-$NOW.log 2>&1
+  dart -c bin/startup.dart liftoff-dev $JOB_NAME $(readlink -f ~/src/sintr/job_code)/ > ../$INSTANCE_ID-$NOW.log 2>&1 & ./watchdog.sh 300 ../$INSTANCE_ID-$NOW.log $!
 
   # Upload the logs
   gsutil cp ../$INSTANCE_ID-$NOW.log gs://liftoff-dev-worker-logs

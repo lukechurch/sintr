@@ -25,7 +25,7 @@ function deploy_cluster {
                          gcloud compute --project "liftoff-dev" instances \
                           create $WORKER_NAME \
                           --zone $ZONE \
-                          --machine-type "n1-standard-1" \
+                          --machine-type "custom-1-6656" \
                           --network "default" \
                           --maintenance-policy "TERMINATE" \
                           --preemptible \
@@ -36,6 +36,8 @@ function deploy_cluster {
                           --boot-disk-device-name $WORKER_NAME &
                      done
                      wait
+
+                     sleep 10
 
                      echo "Nodes ready, initting"
 
@@ -52,6 +54,10 @@ function deploy_cluster {
                      echo "Deployment complete"
 
                 }
+if [ "$#" -ne 2 ]; then
+    echo "Usage deploy_worker_cluster NODE_COUNT_PER_ZONE job_name"
+    exit
+fi
 
 echo "Starting cluster of " $1 " for " $2
 
@@ -59,6 +65,5 @@ deploy_cluster "sintr-worker-usc1a-" "us-central1-a" $1 $2
 deploy_cluster "sintr-worker-use1b-" "us-east1-b" $1 $2
 deploy_cluster "sintr-worker-ase1a-" "asia-east1-a" $1 $2
 deploy_cluster "sintr-worker-euw1b-" "europe-west1-b" $1 $2
-
 
 echo "Cluster start complete"

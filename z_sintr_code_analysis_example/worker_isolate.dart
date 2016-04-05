@@ -15,7 +15,7 @@ import 'package:sintr_common/logging_utils.dart' as log;
 import 'package:gcloud/storage.dart' as storage;
 
 import 'package:sintr_common/bucket_utils.dart';
-import 'package:sintr_worker_lib/analyse_path.dart';
+import 'analyse_path.dart';
 import 'package:path/path.dart' as path;
 
 const PROJECT_NAME = "liftoff-dev";

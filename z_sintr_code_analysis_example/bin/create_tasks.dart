@@ -18,7 +18,7 @@ main(List<String> args) async {
 
   String projectId = "liftoff-dev";
   String inputDataBucket =
-      "liftoff-dev-datasources-src";
+      "liftoff-dev-datasources-dartpad";
 
   config.configuration = new config.Configuration(projectId,
       cryptoTokensLocation:
@@ -41,5 +41,5 @@ main(List<String> args) async {
   }
 
   await task_utils.createTasks("DartpadAnalysis", inputDataBucket, objectPaths,
-      "liftoff-dev-results", "liftoff-dev-source", incremental: true);
+      "liftoff-dev-results-dartpad", "liftoff-dev-source", incremental: true);
 }

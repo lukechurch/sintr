@@ -2,18 +2,22 @@
 # for details. All rights reserved. Use of this source code is governed by a
 # BSD-style license that can be found in the LICENSE file.
 
-# Run sintr worker locally
+# dart ~/GitRepos/sintr_common/bin/uploadSource.dart liftoff-dev liftoff-dev-source test_worker.json ~/GitRepos/sintr/z_sintr_analysis_server_example
 
-rm -r ~/sintr_worker_folder
-mkdir ~/sintr_worker_folder
-cp sintr_analysis_server_example/pubspec.yaml ~/sintr_worker_folder
-CURRENT_WORKING=`pwd`
-cd sintr_common
-SINTR_COMMON=`pwd`
-cd ~/sintr_worker_folder
-sed "s|\.\./sintr_common|$SINTR_COMMON|g" pubspec.yaml > pubspec.new
-mv pubspec.yaml pubspec.old
-mv pubspec.new pubspec.yaml
-pub get
-cd $CURRENT_WORKING
-dart -c sintr_worker/bin/startup.dart liftoff-dev example_task ~/sintr_worker_folder/
+
+# Establish the root structure
+rm -rf ~/src/sintr
+mkdir -p ~/src/sintr
+cd ~/src/sintr
+
+# Deploy the image
+gsutil cp gs://liftoff-dev-source/sintr-image.tar.gz ~/src/sintr/sintr-image.tar.gz
+tar -xf sintr-image.tar.gz
+
+# Remove any code in the working structure
+rm -r ~/src/sintr/sintr_working
+mkdir ~/src/sintr/sintr_working
+cd ~/src/sintr/sintr_worker
+
+# Startup the local worker
+dart --observe=8283 -c bin/startup.dart liftoff-dev example_task ~/src/sintr/sintr_working/

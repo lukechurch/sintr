@@ -53,11 +53,15 @@ main(List<String> args) async {
 
 
   var versionList = versionsMap.keys.toList()..sort((a, b) {
-    if (a == b) return 0;
-    if (new SemanticVersion.fromString(a) > new SemanticVersion.fromString(b)) return 1;
-    return -1;
+    // SemVar ordering doesn't appear to be working
+    return a.compareTo(b);
+
+    // if (a == b) return 0;
+    // if (new SemanticVersion.fromString(a) > new SemanticVersion.fromString(b)) return 1;
+    // return -1;
   });
 
+  print (versionList);
   var version = versionList.last;
 
   log ("Processing version: $version");

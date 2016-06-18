@@ -57,6 +57,7 @@ startServerLoop() async {
   print('listening on localhost, port ${requestServer.port}');
   await for (HttpRequest request in requestServer) {
     print (resultString);
+    request.response.headers.add('access-control-allow-origin', '*');
     request.response..write(JSON.encode(resultsFiltered))..close();
   }
 }

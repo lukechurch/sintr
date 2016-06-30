@@ -9,6 +9,9 @@ import 'package:semver/semver.dart';
 import 'package:sintr_worker_lib/stacktrace_model.dart' as st;
 import 'package:nectar/clusterers.dart' as cluster;
 
+// Stack traces with < this Jaccard distance will be merged
+const MIN_DISTANCE = 0.2;
+
 main(List<String> args) async {
   if (args.length != 2) {
     print("Runs the clusterer on a set of stack traces locally");
@@ -126,6 +129,8 @@ main(List<String> args) async {
 
   print("Indexed $totalStacksProcessed stack traces");
 
+  int progress = 0;
+
   for (var k in stackTracesByVersion.keys) {
     int tracesVersion = stackTracesByVersion[k].length;
     print("");
@@ -135,30 +140,34 @@ main(List<String> args) async {
     Stopwatch sw = new Stopwatch()..start();
 
     List<cluster.DataItem> dataItems = [];
-    List<st.StackTrace> previouslyAdded = [];
 
     for (st.StackTrace stack in stackTracesByVersion[k]) {
+      progress++;
+
+      var dataItem = new cluster.DataItem(stack, st.StackTrace.distance);
+
       bool alreadyFound = false;
-      for (st.StackTrace existing in previouslyAdded) {
-        if (stack.equalByStackTraces(existing)) {
-          existing.count++;
+      double minDistance = double.MAX_FINITE;
+      for (var existing in dataItems.reversed) {
+        double distance = st.StackTrace.distance(dataItem, existing);
+
+        minDistance = distance < minDistance ? distance : minDistance;
+        if (distance < MIN_DISTANCE) {
+          existing.data.count++;
           alreadyFound = true;
-          break;
+
+          continue;
         }
       }
 
       if (!alreadyFound) {
-        previouslyAdded.add(stack);
-        dataItems.add(new cluster.DataItem(stack, st.StackTrace.distance));
+        dataItems.add(dataItem);
+        print ("$progress/${stackTracesByVersion[k].length}: Added, min distance: $minDistance, sts now: ${dataItems.length}");
+
       }
     }
 
-    log("Unique stacks: ${dataItems.length}");
-    previouslyAdded.sort((a, b) => a.count.compareTo(b.count));
-    for (st.StackTrace st in previouslyAdded.reversed) {
-        log("Common stack: $st");
-        if (st.count <= 1) break;
-    }
+    log("Different stacks: ${dataItems.length}");
 
     cluster.KMedoids clusterModel = new cluster.KMedoids(dataItems);
     log("Initial cost: ${clusterModel.cost}");

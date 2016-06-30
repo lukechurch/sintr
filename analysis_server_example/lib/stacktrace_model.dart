@@ -10,6 +10,7 @@ import 'package:nectar/distance_measures.dart' as distances;
 class StackTrace {
   List<String> locations;
   String fullMessage;
+  String rawSourceString;
   String sessionLocation;
   int count;
 
@@ -20,7 +21,7 @@ class StackTrace {
     StringBuffer buffer = new StringBuffer();
     buffer.write("Count: $count\n");
     buffer.write("Session: $sessionLocation\n");
-    buffer.write(locations.join(" "));
+    buffer.write(locations.join("\n"));
     buffer.writeln();
     buffer.write("Original message:\n");
     buffer.write(fullMessage);
@@ -39,18 +40,28 @@ class StackTrace {
     this.count = count;
     this.sessionLocation = sessionLocation;
 
+    this.rawSourceString = str;
+
     // Strip anything before "Caused by"
     if (str.contains("Caused by")) {
       str = str.substring(str.lastIndexOf("Caused by"));
     }
 
-    List<String> lines = str.split("\n");
+    // Strip anything before "StackTrace"
+    String testStr = 'stackTrace"::';
+    if (str.contains(testStr)) {
+      str = str.substring(str.indexOf(testStr) + testStr.length + 1) ;
+    }
+
+    // str = str.replaceAll("\\n", "\n");
+
+    List<String> lines = str.split("\\n");
     List<String> newLines = [];
 
     for (String ln in lines) {
       ln = ln.trim();
       if (ln.isEmpty) continue;
-      // if (!ln.startsWith("#")) continue;
+      if (!ln.startsWith("#")) continue;
 
       if (ln.contains("::")) {
         ln = ln.substring(0, ln.lastIndexOf("::"));

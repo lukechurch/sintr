@@ -12,14 +12,12 @@ dependencies:
   logging: '>=0.11.1 <0.12.0'
   crypto: '>=0.9.0 <0.10.0'
   sintr_common:
-    path: ../sintr_common
+    git: https://github.com/lukechurch/sintr_common.git
   intl: any
   cli_util: any
   uuid: ^0.5.0
   nectar:
      git: https://github.com/lukechurch/nectar.git
-  sintr_common:
-    path: ../sintr_common
   services:
     git: https://github.com/dart-lang/dart-services.git
 # dev_dependencies:

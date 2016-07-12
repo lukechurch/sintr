@@ -78,6 +78,9 @@ mkdir -p ~/Analysis/AnalysisServer/exceptionClusters
 gsutil -m cp -n gs://liftoff-dev-results/versions/out/* ~/Analysis/AnalysisServer/versions
 gsutil -m cp -n gs://liftoff-dev-results/severeLogs/out/* ~/Analysis/AnalysisServer/severeLogs
 
+dart analysis_server_example/local_reducer_severeCount.dart \
+  ~/Analysis/AnalysisServer/severeCount > ~/Analysis/AnalysisServer/analysisServerSevereCount.log
+
 dart analysis_server_example/local_reducer_versions.dart \
   ~/Analysis/AnalysisServer/versions > ~/Analysis/AnalysisServer/analysisServerVersions.log
 

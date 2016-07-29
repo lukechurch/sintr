@@ -72,10 +72,12 @@ echo " ======= REDUCER PHASE ======= "
 echo "Copying data to local"
 
 mkdir -p ~/Analysis/AnalysisServer/versions
+mkdir -p ~/Analysis/AnalysisServer/severeCount
 mkdir -p ~/Analysis/AnalysisServer/severeLogs
 mkdir -p ~/Analysis/AnalysisServer/exceptionClusters
 
 gsutil -m cp -n gs://liftoff-dev-results/versions/out/* ~/Analysis/AnalysisServer/versions
+gsutil -m cp -n gs://liftoff-dev-results/severeCount/out/* ~/Analysis/AnalysisServer/severeCount
 gsutil -m cp -n gs://liftoff-dev-results/severeLogs/out/* ~/Analysis/AnalysisServer/severeLogs
 
 dart analysis_server_example/local_reducer_severeCount.dart \

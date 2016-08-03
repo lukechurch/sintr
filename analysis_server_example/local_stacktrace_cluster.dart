@@ -4,7 +4,6 @@
 
 import 'dart:convert';
 import 'dart:io' as io;
-import 'package:semver/semver.dart';
 
 import 'package:sintr_worker_lib/stacktrace_model.dart' as st;
 import 'package:nectar/clusterers.dart' as cluster;
@@ -42,8 +41,6 @@ main(List<String> args) async {
       var k = result[0];
 
       try {
-        var version = new SemanticVersion.fromString(k);
-
         versionsMap.putIfAbsent(k, () => []).add(fse.path);
       } catch (e) {
         print ("Invalid version: $k");

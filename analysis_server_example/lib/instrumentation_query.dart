@@ -68,8 +68,10 @@ Map mergeBucketsRecursively(Map results1, Map results2) {
 
 /// Insert [newValue] into the sorted list of [sortedValues]
 /// such that the list is still sorted.
-void orderedInsert(List sortedValues, var newValue, [int comparator(v1, v2)]) {
-  if (comparator == null) comparator = (v1, v2) => v1 - v2;
+void orderedInsert/*<T>*/(List/*<T>*/ sortedValues, var/*=T*/ newValue,
+    [int comparator(/*=T*/ v1, /*=T*/ v2)]) {
+  if (comparator == null)
+    comparator = (Comparable v1, Comparable v2) => v1.compareTo(v2);
   if (_DEBUG) verifySorted(sortedValues, comparator);
   if (sortedValues.length == 0) {
     sortedValues.add(newValue);
@@ -84,7 +86,7 @@ void orderedInsert(List sortedValues, var newValue, [int comparator(v1, v2)]) {
   int end = sortedValues.length;
   int pivot = start + (end - start) ~/ 2;
   while (end - start > 1 || sortedValues[pivot] == newValue) {
-    var diff = comparator(newValue, sortedValues[pivot]);
+    int diff = comparator(newValue, sortedValues[pivot]);
     if (diff == 0) break;
     if (diff > 0) {
       start = pivot;

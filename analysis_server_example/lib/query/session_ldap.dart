@@ -8,8 +8,8 @@ import 'dart:convert';
 
 import '../instrumentation_query.dart';
 
-final sessionIdComparator = (String s1, String s2) =>
-    double.parse(s1) - double.parse(s2);
+final sessionIdComparator =
+    (String s1, String s2) => double.parse(s1).compareTo(double.parse(s2));
 
 /// Combine map results to produce a mapping of LDAP to list of sessions
 final sessionLdapReducer = (String sessionId, String ldap, Map results) {
@@ -45,7 +45,6 @@ final sessionLdapReductionMerge = (Map results1, Map results2) {
 /// [CompletionMapper] processes session log messages and extracts
 /// an LDAP for the current session.
 class SessionLdapMapper extends InstrumentationMapper {
-
   @override
   void mapLogMessage(int time, String msgType, String logMessageText) {
     if (msgType != 'Req') return;

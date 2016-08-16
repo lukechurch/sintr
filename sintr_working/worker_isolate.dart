@@ -10,7 +10,6 @@ import 'dart:isolate';
 // import 'package:gcloud/src/datastore_impl.dart' as datastore_impl;
 import 'package:gcloud/storage.dart' as storage;
 import 'package:sintr_common/auth.dart' as auth;
-import 'package:sintr_common/auth.dart';
 import 'package:sintr_common/configuration.dart' as config;
 import 'package:sintr_common/logging_utils.dart' as log;
 

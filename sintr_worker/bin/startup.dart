@@ -12,7 +12,6 @@ import 'package:gcloud/db.dart' as db;
 import 'package:gcloud/service_scope.dart' as ss;
 import 'package:gcloud/src/datastore_impl.dart' as datastore_impl;
 import 'package:sintr_common/auth.dart' as auth;
-import 'package:sintr_common/auth.dart';
 import 'package:sintr_common/configuration.dart' as config;
 import 'package:sintr_common/gae_utils.dart' as gae_utils;
 import 'package:sintr_common/logging_utils.dart' as log;

@@ -7,10 +7,6 @@ fi
 
 CLUSTER_SIZE=$1
 
-echo "Syncing datasets"
-# ./analysis_server_example/tools/sync_datasets.sh
-# ./analysis_server_example/tools/compact_datasets.sh
-
 echo "Starting run"
 
 echo "Delete logs"
